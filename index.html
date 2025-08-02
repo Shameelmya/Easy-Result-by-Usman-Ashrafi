@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Result</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Arabic and English text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- jsPDF and html2canvas for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- PapaParse for CSV file reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+    <style>
+        /* Custom styles to apply the fonts */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .font-amiri {
+            font-family: 'Amiri', serif;
+        }
+        /* Hide scrollbar for cleaner look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Custom styles for print layout */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #result-to-print, #result-to-print * {
+                visibility: visible;
+            }
+            #result-to-print {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="app" class="max-w-lg mx-auto p-4 min-h-screen flex flex-col">
+
+        <!-- Header Section -->
+        <header id="header" class="text-center py-6">
+            <h1 class="text-4xl font-bold text-blue-800">Easy Result</h1>
+            <p id="madrasaName" class="text-lg text-gray-600 mt-1">Ustadh Usman Ashrafi Malayamma</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="flex-grow flex flex-col justify-center">
+
+            <!-- Home Page -->
+            <div id="home-page" class="text-center">
+                <div class="text-8xl mb-4 animate-bounce">
+                    📖
+                </div>
+                <h2 class="text-3xl font-amiri font-bold text-gray-700">مدرسة هداية الإسلام الثانويّة العالية</h2>
+                <p class="text-gray-500 mb-8">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
+                <button id="show-classes-btn" class="w-full max-w-xs mx-auto bg-blue-600 text-white font-bold py-4 px-6 rounded-full text-2xl shadow-lg hover:bg-blue-700 transform hover:scale-105 transition-transform duration-300 ease-in-out">
+                    Classes
+                </button>
+            </div>
+
+            <!-- Classes Page -->
+            <div id="classes-page" class="hidden">
+                <h2 class="text-2xl font-bold text-center mb-6">Select a Class</h2>
+                <div id="class-list" class="space-y-3">
+                    <!-- Class buttons will be injected here by JavaScript -->
+                </div>
+                <button onclick="showPage('home-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
+            </div>
+
+            <!-- Exams Page -->
+            <div id="exams-page" class="hidden">
+                <h2 class="text-2xl font-bold text-center mb-2">Class <span id="selected-class-title"></span></h2>
+                <h3 class="text-lg text-center text-gray-600 mb-6">Select an Exam</h3>
+                <div id="exam-list" class="space-y-3">
+                    <!-- Exam buttons will be injected here by JavaScript -->
+                </div>
+                 <button onclick="showPage('classes-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
+            </div>
+
+            <!-- Verification Page -->
+            <div id="verification-page" class="hidden">
+                <h2 class="text-2xl font-bold text-center mb-2">Student Verification</h2>
+                <p class="text-center text-gray-600 mb-6">For Exam: <span id="selected-exam-title" class="font-bold"></span></p>
+                <form id="verification-form" class="space-y-6 bg-white p-6 rounded-2xl shadow-md">
+                    <div>
+                        <label for="admission-number" class="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
+                        <input type="text" id="admission-number" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 12345" required>
+                    </div>
+                    <div>
+                        <label for="uid-number" class="block text-sm font-medium text-gray-700 mb-1">UID Number</label>
+                        <input type="text" id="uid-number" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 67890" required>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-full text-lg shadow-md hover:bg-green-700 transition-colors">Get Result</button>
+                </form>
+                <div id="verification-error" class="mt-4 text-center text-red-600 font-semibold hidden"></div>
+                 <button onclick="showPage('exams-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
+            </div>
+
+            <!-- Result Page -->
+            <div id="result-page" class="hidden p-1">
+                <div id="result-to-print" class="bg-white p-5 sm:p-8 rounded-2xl shadow-lg">
+                    <div class="text-center mb-6 border-b-2 border-gray-200 pb-5">
+                        <h2 class="text-3xl sm:text-4xl font-bold text-blue-800 font-amiri">بطاقة النتيجة</h2>
+                        <p class="text-gray-600 text-lg">Result Card</p>
+                    </div>
+                    <!-- Student Details -->
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-4 text-base sm:text-lg mb-8 font-amiri" dir="rtl">
+                        <p class="text-gray-600">رقم التسجيل:</p><p id="res-admission-no" class="font-bold text-gray-800 text-left"></p>
+                        <p class="text-gray-600">رقم الهوية:</p><p id="res-uid" class="font-bold text-gray-800 text-left"></p>
+                        <p class="text-gray-600">الاسم:</p><p id="res-name" class="font-bold text-xl text-blue-700 text-left"></p>
+                        <p class="text-gray-600">الصف:</p><p id="res-class" class="font-bold text-gray-800 text-left"></p>
+                        <p class="text-gray-600">اسم الامتحان:</p><p id="res-exam-name" class="font-bold text-gray-800 text-left"></p>
+                    </div>
+                    <!-- Scores Table -->
+                    <div class="overflow-x-auto rounded-lg border border-gray-200">
+                        <table class="min-w-full divide-y-2 divide-gray-200 font-amiri">
+                            <thead class="bg-gray-100">
+                                <tr dir="rtl">
+                                    <th class="px-6 py-4 text-right text-base font-bold text-gray-600">المادة</th>
+                                    <th class="px-6 py-4 text-center text-base font-bold text-gray-600">العلامة</th>
+                                    <th class="px-6 py-4 text-left text-base font-bold text-gray-600">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scores-tbody" class="bg-white divide-y divide-gray-200">
+                                <!-- Scores will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Summary Section -->
+                    <div class="mt-8 pt-6 border-t-2 border-gray-200 font-amiri text-base sm:text-lg">
+                        <h3 class="font-bold text-xl mb-4 text-center text-gray-800">Summary الملخص</h3>
+                        <div class="space-y-3" dir="rtl">
+                            <div class="flex justify-between items-center"><p class="text-gray-600">المجموع الكلي:</p><p id="res-total-score" class="font-bold text-blue-700"></p></div>
+                            <div class="flex justify-between items-center"><p class="text-gray-600">العلامة الكلية:</p><p id="res-max-score" class="font-bold text-gray-900"></p></div>
+                            <div class="flex justify-between items-center"><p class="text-gray-600">النسبة المئوية:</p><p id="res-percentage" class="font-bold text-blue-700"></p></div>
+                            <hr class="my-4">
+                            <div class="flex justify-between items-center"><p class="text-gray-600">الحضور في هذا الفصل:</p><p id="res-attendance" class="font-bold text-gray-900"></p></div>
+                            <div class="flex justify-between items-center"><p class="text-gray-600">الحد الأقصى للحضور:</p><p id="res-max-attendance" class="font-bold text-gray-900"></p></div>
+                            <div class="flex justify-between items-center"><p class="text-gray-600">نسبة الحضور:</p><p id="res-attendance-perc" class="font-bold text-blue-700"></p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <button id="export-pdf-btn" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-full hover:bg-red-700 transition-colors">Export to PDF</button>
+                    <button onclick="showPage('home-page', true)" class="w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Go Home</button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer with Admin Login -->
+        <footer id="footer" class="text-center py-4">
+            <button id="admin-login-btn" class="text-sm text-gray-400 hover:text-blue-600">Admin Panel</button>
+        </footer>
+
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="admin-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div id="admin-login-view" class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-center mb-6">Admin Login</h2>
+            <form id="admin-login-form" class="space-y-4">
+                <input type="text" id="admin-username" placeholder="Username" class="w-full p-3 border rounded-xl" required>
+                <input type="password" id="admin-password" placeholder="Password" class="w-full p-3 border rounded-xl" required>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-full hover:bg-blue-700">Login</button>
+                <p id="admin-login-error" class="text-red-500 text-sm text-center hidden">Invalid credentials.</p>
+            </form>
+            <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-2 rounded-full hover:bg-gray-300">Close</button>
+        </div>
+
+        <div id="admin-panel-view" class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md hidden h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Admin Panel</h2>
+                <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+            </div>
+            <div class="flex-grow overflow-y-auto no-scrollbar pr-2">
+                <!-- Class Management -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">Manage Classes</h3>
+                    <div id="admin-class-list" class="space-y-2"></div>
+                    <div class="flex gap-2 mt-2">
+                        <input type="text" id="new-class-name" placeholder="New Class Name (e.g., 6)" class="flex-grow p-2 border rounded-lg">
+                        <button id="add-class-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600">+</button>
+                    </div>
+                </div>
+
+                <!-- Subject and Exam Management Section -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">Manage Exams & Subjects</h3>
+                    <label for="admin-class-select" class="text-sm font-medium">Select Class to Manage:</label>
+                    <select id="admin-class-select" class="w-full p-2 border rounded-lg mt-1 mb-4"></select>
+                    
+                    <div id="exam-subject-management-container" class="hidden">
+                        <!-- Exam Management -->
+                        <div class="mb-6">
+                            <h4 class="font-semibold mb-2 text-gray-700">Exams for this Class</h4>
+                            <div id="admin-exam-list" class="space-y-2 mb-3"></div>
+                            <div class="flex gap-2 mt-2">
+                                <input type="text" id="new-exam-name" placeholder="New Exam Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
+                                <button id="add-exam-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Subject Management -->
+                        <div>
+                            <h4 class="font-semibold mb-2 text-gray-700">Subjects for this Class</h4>
+                            <div id="admin-subject-list" class="space-y-2 mb-3"></div>
+                            <div class="flex gap-2 mt-2">
+                                <input type="text" id="new-subject-name" placeholder="New Subject Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
+                                <button id="add-subject-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Student Results Section -->
+                <div class="p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">Upload Student Results</h3>
+                    <div id="upload-section-container" class="hidden space-y-3">
+                        <div>
+                             <label for="upload-exam-select" class="text-sm font-medium">1. Select Exam to Add Results For:</label>
+                             <select id="upload-exam-select" class="w-full p-2 border rounded-lg mt-1"></select>
+                        </div>
+                        <div>
+                            <label for="csv-file-input" class="text-sm font-medium">2. Choose CSV File to Upload:</label>
+                            <input type="file" id="csv-file-input" accept=".csv" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1">
+                        </div>
+                        <button id="upload-csv-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-full hover:bg-green-700">Upload Results</button>
+                        <p id="upload-status" class="text-center text-sm mt-2"></p>
+                    </div>
+                    <div id="upload-section-placeholder">
+                        <p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>
+                    </div>
+                </div>
+            </div>
+             <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-full hover:bg-gray-300">Close Panel</button>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DATA STORE ---
+        let db = {
+            madrasaName: "Ustadh Usman Ashrafi Malayamma",
+            classes: [],
+            subjects: [],
+            exams: [],
+            resultsData: {}
+        };
+
+        // --- STATE MANAGEMENT ---
+        let currentState = {
+            selectedClassId: null,
+            selectedExamId: null,
+        };
+
+        // --- UI NAVIGATION ---
+        const pages = ['home-page', 'classes-page', 'exams-page', 'verification-page', 'result-page'];
+        const mainContent = document.getElementById('main-content');
+        const header = document.getElementById('header');
+        const footer = document.getElementById('footer');
+
+        function showPage(pageId, isReset = false) {
+            pages.forEach(p => document.getElementById(p).classList.add('hidden'));
+            document.getElementById(pageId).classList.remove('hidden');
+
+            // Hide header and footer on result page for a clean view
+            if (pageId === 'result-page') {
+                mainContent.classList.remove('justify-center');
+                header.classList.add('hidden');
+                footer.classList.add('hidden');
+            } else {
+                 mainContent.classList.add('justify-center');
+                 header.classList.remove('hidden');
+                 // Only show footer (with admin button) on the home page
+                 if (pageId === 'home-page') {
+                    footer.classList.remove('hidden');
+                 } else {
+                    footer.classList.add('hidden');
+                 }
+            }
+            
+            if (isReset) {
+                currentState = { selectedClassId: null, selectedExamId: null };
+                document.getElementById('verification-form').reset();
+            }
+            window.scrollTo(0, 0);
+        }
+
+        // --- RENDERING FUNCTIONS ---
+        function renderClasses() {
+            const classList = document.getElementById('class-list');
+            classList.innerHTML = '';
+            if (db.classes.length === 0) {
+                classList.innerHTML = `<p class="text-center text-gray-500">No classes have been added yet. Please add them in the Admin Panel.</p>`;
+                return;
+            }
+            db.classes.forEach(cls => {
+                const button = document.createElement('button');
+                button.className = "w-full bg-white text-gray-800 font-bold py-4 px-4 rounded-full text-xl shadow-md border border-gray-200 hover:bg-blue-50 transition-colors";
+                button.textContent = `Class ${cls.name}`;
+                button.onclick = () => selectClass(cls.id);
+                classList.appendChild(button);
+            });
+        }
+
+        function renderExams(classId) {
+            const examList = document.getElementById('exam-list');
+            const selectedClass = db.classes.find(c => c.id === classId);
+            document.getElementById('selected-class-title').textContent = selectedClass.name;
+            examList.innerHTML = '';
+            const examsForClass = db.exams
+                .filter(e => e.classId === classId)
+                .sort((a, b) => (b.isLatest ? 1 : 0) - (a.isLatest ? 1 : 0));
+
+            if (examsForClass.length === 0) {
+                examList.innerHTML = `<p class="text-center text-gray-500">No exams found for this class.</p>`;
+                return;
+            }
+
+            examsForClass.forEach(exam => {
+                const button = document.createElement('button');
+                button.className = `w-full text-white font-bold py-4 px-4 rounded-full text-xl shadow-md transition-colors font-amiri ${exam.isLatest ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 hover:bg-gray-600'}`;
+                button.textContent = exam.name;
+                button.onclick = () => selectExam(exam.id);
+                examList.appendChild(button);
+            });
+        }
+        
+        function renderResult(studentData) {
+            const selectedExam = db.exams.find(e => e.id === currentState.selectedExamId);
+            const selectedClass = db.classes.find(c => c.id === currentState.selectedClassId);
+
+            document.getElementById('res-admission-no').textContent = studentData.admNo;
+            document.getElementById('res-uid').textContent = studentData.uid;
+            document.getElementById('res-name').textContent = studentData.name;
+            document.getElementById('res-class').textContent = selectedClass.name;
+            document.getElementById('res-exam-name').textContent = selectedExam.name;
+            
+            const scoresTbody = document.getElementById('scores-tbody');
+            scoresTbody.innerHTML = '';
+            let totalScore = 0;
+            
+            const classSubjects = db.subjects.filter(s => s.classId === selectedClass.id);
+            let maxScore = classSubjects.length * 50;
+
+            classSubjects.forEach(subject => {
+                const score = studentData.subjects[subject.name] || 0;
+                const status = score >= 18 ? 'Pass' : 'Fail';
+                const statusColor = score >= 18 ? 'text-green-600' : 'text-red-600';
+                totalScore += parseInt(score) || 0;
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-gray-50";
+                row.setAttribute('dir', 'rtl');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-right font-bold text-gray-800">${subject.name}</td>
+                    <td class="px-6 py-4 text-center font-mono text-lg font-bold text-blue-700">${score}</td>
+                    <td class="px-6 py-4 text-left font-bold ${statusColor}">${status}</td>
+                `;
+                scoresTbody.appendChild(row);
+            });
+
+            const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(2) : 0;
+            const attendancePerc = studentData.maxAttendance > 0 ? ((studentData.attendance / studentData.maxAttendance) * 100).toFixed(2) : 0;
+
+            document.getElementById('res-total-score').textContent = `${totalScore}`;
+            document.getElementById('res-max-score').textContent = `${maxScore}`;
+            document.getElementById('res-percentage').textContent = `${percentage}%`;
+            document.getElementById('res-attendance').textContent = studentData.attendance;
+            document.getElementById('res-max-attendance').textContent = studentData.maxAttendance;
+            document.getElementById('res-attendance-perc').textContent = `${attendancePerc}%`;
+
+            showPage('result-page');
+        }
+
+        // --- EVENT HANDLERS & LOGIC ---
+        document.getElementById('show-classes-btn').addEventListener('click', () => {
+            renderClasses();
+            showPage('classes-page');
+        });
+
+        function selectClass(classId) {
+            currentState.selectedClassId = classId;
+            renderExams(classId);
+            showPage('exams-page');
+        }
+
+        function selectExam(examId) {
+            currentState.selectedExamId = examId;
+            const selectedExam = db.exams.find(e => e.id === examId);
+            document.getElementById('selected-exam-title').textContent = selectedExam.name;
+            document.getElementById('verification-error').classList.add('hidden');
+            showPage('verification-page');
+        }
+
+        document.getElementById('verification-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const admNo = document.getElementById('admission-number').value.trim();
+            const uid = document.getElementById('uid-number').value.trim();
+            const errorDiv = document.getElementById('verification-error');
+
+            if (!admNo || !uid) {
+                errorDiv.textContent = 'Please fill in both fields.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            const dataKey = `${currentState.selectedClassId}-${currentState.selectedExamId}`;
+            const studentRecords = db.resultsData[dataKey];
+            
+            if (!studentRecords) {
+                errorDiv.textContent = 'No results found for this exam. Please check back later.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            const student = studentRecords.find(s => s.admNo === admNo && s.uid === uid);
+
+            if (student) {
+                renderResult(student);
+            } else {
+                errorDiv.textContent = 'Admission Number and UID do not match. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+
+        // UPDATED PDF EXPORT LOGIC
+        document.getElementById('export-pdf-btn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const resultElement = document.getElementById('result-to-print');
+            const studentName = document.getElementById('res-name').textContent;
+            const examName = document.getElementById('res-exam-name').textContent;
+            
+            html2canvas(resultElement, { scale: 3, useCORS: true }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+
+                const margin = 15; // 1.5 cm margin
+                const pdfWidth = pdf.internal.pageSize.getWidth() - (margin * 2);
+                const pdfHeight = pdf.internal.pageSize.getHeight() - (margin * 2);
+                
+                const canvasWidth = canvas.width;
+                const canvasHeight = canvas.height;
+                const canvasRatio = canvasWidth / canvasHeight;
+                
+                let finalWidth = pdfWidth;
+                let finalHeight = pdfWidth / canvasRatio;
+
+                if (finalHeight > pdfHeight) {
+                    finalHeight = pdfHeight;
+                    finalWidth = pdfHeight * canvasRatio;
+                }
+
+                const x = margin + (pdfWidth - finalWidth) / 2;
+                const y = margin;
+
+                pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+                pdf.save(`Result-${studentName}-${examName}.pdf`);
+            });
+        });
+
+        // --- ADMIN PANEL LOGIC ---
+        const adminModal = document.getElementById('admin-modal');
+        const adminLoginView = document.getElementById('admin-login-view');
+        const adminPanelView = document.getElementById('admin-panel-view');
+
+        document.getElementById('admin-login-btn').addEventListener('click', () => {
+            adminModal.classList.remove('hidden');
+            adminLoginView.classList.remove('hidden');
+            adminPanelView.classList.add('hidden');
+            document.getElementById('admin-login-form').reset();
+            document.getElementById('admin-login-error').classList.add('hidden');
+        });
+
+        document.getElementById('admin-login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            if (username === 'Ashrafi' && password === '67890') {
+                adminLoginView.classList.add('hidden');
+                adminPanelView.classList.remove('hidden');
+                renderAdminPanel();
+            } else {
+                document.getElementById('admin-login-error').classList.remove('hidden');
+            }
+        });
+        
+        function renderAdminPanel() {
+            renderAdminClasses();
+            renderAdminClassSelect();
+            handleAdminClassChange();
+        }
+
+        function renderAdminClasses() {
+            const list = document.getElementById('admin-class-list');
+            list.innerHTML = '';
+             if (db.classes.length === 0) {
+                list.innerHTML = `<p class="text-center text-sm text-gray-500">No classes added yet.</p>`;
+            }
+            db.classes.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-gray-100 p-2 rounded-lg';
+                div.innerHTML = `
+                    <input type="text" value="${c.name}" onchange="updateClassName(${c.id}, this.value)" class="bg-transparent font-semibold w-full">
+                    <button onclick="deleteClass(${c.id})" class="text-red-500 font-bold px-2 hover:text-red-700">X</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function renderAdminClassSelect() {
+            const select = document.getElementById('admin-class-select');
+            const oldVal = select.value;
+            select.innerHTML = '';
+            if (db.classes.length === 0) {
+                select.innerHTML = `<option value="">Please add a class first</option>`;
+            }
+            db.classes.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.id;
+                option.textContent = `Class ${c.name}`;
+                select.appendChild(option);
+            });
+            select.value = oldVal;
+            if (!select.value && db.classes.length > 0) {
+                select.value = db.classes[0].id;
+            }
+            select.onchange = handleAdminClassChange;
+        }
+        
+        function handleAdminClassChange() {
+            const selectedClassId = document.getElementById('admin-class-select').value;
+            const container = document.getElementById('exam-subject-management-container');
+            const uploadContainer = document.getElementById('upload-section-container');
+            const uploadPlaceholder = document.getElementById('upload-section-placeholder');
+
+            if(selectedClassId) {
+                container.classList.remove('hidden');
+                renderAdminExams();
+                renderAdminSubjects();
+                renderUploadExamSelect();
+                
+                const examsForClass = db.exams.filter(e => e.classId == selectedClassId);
+                if (examsForClass.length > 0) {
+                    uploadContainer.classList.remove('hidden');
+                    uploadPlaceholder.classList.add('hidden');
+                } else {
+                    uploadContainer.classList.add('hidden');
+                    uploadPlaceholder.classList.remove('hidden');
+                    uploadPlaceholder.innerHTML = `<p class="text-sm text-gray-500 text-center">Please add an exam for this class to enable uploads.</p>`
+                }
+
+            } else {
+                container.classList.add('hidden');
+                uploadContainer.classList.add('hidden');
+                uploadPlaceholder.classList.remove('hidden');
+                uploadPlaceholder.innerHTML = `<p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>`
+            }
+        }
+
+        function renderAdminExams() {
+            const list = document.getElementById('admin-exam-list');
+            const selectedClassId = parseInt(document.getElementById('admin-class-select').value);
+            list.innerHTML = '';
+            if (!selectedClassId) return;
+            
+            const examsForClass = db.exams.filter(e => e.classId === selectedClassId);
+            if (examsForClass.length === 0) {
+                 list.innerHTML = '<p class="text-sm text-gray-500 text-center py-2">No exams for this class.</p>';
+            }
+            examsForClass.forEach(e => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white p-2 rounded-lg border';
+                div.innerHTML = `
+                    <input type="text" value="${e.name}" onchange="updateExamName(${e.id}, this.value)" class="bg-transparent font-amiri w-full">
+                    <button onclick="deleteExam(${e.id})" class="text-red-500 font-bold px-2 hover:text-red-700">X</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function renderAdminSubjects() {
+            const list = document.getElementById('admin-subject-list');
+            const selectedClassId = parseInt(document.getElementById('admin-class-select').value);
+            list.innerHTML = '';
+            if (!selectedClassId) return;
+
+            const subjectsForClass = db.subjects.filter(s => s.classId === selectedClassId);
+            if (subjectsForClass.length === 0) {
+                list.innerHTML = '<p class="text-sm text-gray-500 text-center py-2">No subjects for this class.</p>';
+            }
+            subjectsForClass.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white p-2 rounded-lg border';
+                div.innerHTML = `
+                    <input type="text" value="${s.name}" onchange="updateSubjectName(${s.id}, this.value)" class="bg-transparent font-amiri w-full">
+                    <button onclick="deleteSubject(${s.id})" class="text-red-500 font-bold px-2 hover:text-red-700">X</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function renderUploadExamSelect() {
+            const select = document.getElementById('upload-exam-select');
+            const selectedClassId = parseInt(document.getElementById('admin-class-select').value);
+            select.innerHTML = '';
+            if (!selectedClassId) return;
+            
+            const examsForClass = db.exams.filter(e => e.classId === selectedClassId);
+            if(examsForClass.length === 0) {
+                select.innerHTML = `<option value="">Please add an exam first</option>`;
+                return;
+            }
+            examsForClass.forEach(e => {
+                const option = document.createElement('option');
+                option.value = e.id;
+                option.textContent = e.name;
+                select.appendChild(option);
+            });
+        }
+
+        // Admin Actions
+        document.getElementById('add-class-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-class-name');
+            if (input.value.trim()) {
+                const newId = (db.classes.length > 0 ? Math.max(...db.classes.map(c => c.id)) : 0) + 1;
+                db.classes.push({ id: newId, name: input.value.trim() });
+                input.value = '';
+                renderAdminPanel();
+            }
+        });
+
+        document.getElementById('add-exam-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-exam-name');
+            const classId = parseInt(document.getElementById('admin-class-select').value);
+            if (input.value.trim() && classId) {
+                const newId = (db.exams.length > 0 ? Math.max(...db.exams.map(e => e.id)) : 0) + 1;
+                db.exams.forEach(ex => { if (ex.classId === classId) ex.isLatest = false; });
+                db.exams.push({ id: newId, classId, name: input.value.trim(), isLatest: true });
+                input.value = '';
+                handleAdminClassChange();
+            }
+        });
+        
+        document.getElementById('add-subject-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-subject-name');
+            const classId = parseInt(document.getElementById('admin-class-select').value);
+            if (input.value.trim() && classId) {
+                const newId = (db.subjects.length > 0 ? Math.max(...db.subjects.map(s => s.id)) : 0) + 1;
+                db.subjects.push({ id: newId, classId, name: input.value.trim() });
+                input.value = '';
+                renderAdminSubjects();
+            }
+        });
+
+        window.updateClassName = (id, newName) => { db.classes.find(c => c.id === id).name = newName; renderAdminClassSelect(); };
+        window.deleteClass = (id) => {
+            db.classes = db.classes.filter(c => c.id !== id);
+            db.exams = db.exams.filter(e => e.classId !== id);
+            db.subjects = db.subjects.filter(s => s.classId !== id);
+            renderAdminPanel();
+        };
+        
+        window.updateExamName = (id, newName) => { db.exams.find(e => e.id === id).name = newName; renderUploadExamSelect(); };
+        window.deleteExam = (id) => {
+            db.exams = db.exams.filter(e => e.id !== id);
+            handleAdminClassChange();
+        };
+        
+        window.updateSubjectName = (id, newName) => { db.subjects.find(s => s.id === id).name = newName; };
+        window.deleteSubject = (id) => {
+            db.subjects = db.subjects.filter(s => s.id !== id);
+            renderAdminSubjects();
+        };
+
+        // CSV Upload Logic
+        document.getElementById('upload-csv-btn').addEventListener('click', () => {
+            const classId = document.getElementById('admin-class-select').value;
+            const examId = document.getElementById('upload-exam-select').value;
+            const fileInput = document.getElementById('csv-file-input');
+            const statusEl = document.getElementById('upload-status');
+
+            if (!classId || !examId) {
+                 statusEl.textContent = "Please select a class and exam.";
+                 statusEl.className = "text-center text-sm mt-2 text-red-600";
+                 return;
+            }
+            if (fileInput.files.length === 0) {
+                 statusEl.textContent = "Please choose a CSV file to upload.";
+                 statusEl.className = "text-center text-sm mt-2 text-red-600";
+                 return;
+            }
+
+            const file = fileInput.files[0];
+            statusEl.textContent = `Uploading ${file.name}...`;
+            statusEl.className = "text-center text-sm mt-2 text-gray-600";
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const dataKey = `${classId}-${examId}`;
+                    const processedData = results.data.map(row => {
+                        const { admNo, uid, name, attendance, maxAttendance, ...subjects } = row;
+                        return {
+                            admNo,
+                            uid,
+                            name,
+                            attendance: parseInt(attendance) || 0,
+                            maxAttendance: parseInt(maxAttendance) || 0,
+                            subjects
+                        };
+                    });
+                    
+                    db.resultsData[dataKey] = processedData;
+                    statusEl.textContent = `Successfully uploaded ${processedData.length} student records.`;
+                    statusEl.className = "text-center text-sm mt-2 text-green-600";
+                    fileInput.value = ''; // Reset file input
+                    console.log("Database updated:", db.resultsData);
+                },
+                error: function(error) {
+                    statusEl.textContent = `Error parsing file: ${error.message}`;
+                    statusEl.className = "text-center text-sm mt-2 text-red-600";
+                }
+            });
+        });
+
+
+        // --- INITIALIZATION ---
+        function initializeApp() {
+            document.getElementById('madrasaName').textContent = db.madrasaName;
+            showPage('home-page');
+        }
+
+        // Run the app
+        initializeApp();
+    </script>
+</body>
+</html>
