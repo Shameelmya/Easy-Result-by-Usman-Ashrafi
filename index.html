@@ -16,7 +16,7 @@
     <!-- PapaParse for CSV file reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
-    <!-- UPDATED: Firebase SDKs (Compat libraries for wider compatibility) -->
+    <!-- Firebase SDKs (Compat libraries for wider compatibility) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -81,22 +81,29 @@
         <!-- Header Section -->
         <header id="header" class="text-center py-6">
             <h1 class="text-4xl font-bold text-blue-800">Easy Result</h1>
-            <p id="madrasaName" class="text-lg text-gray-600 mt-1">Ustadh Usman Ashrafi Malayamma</p>
+            <p id="madrasaName" class="text-lg text-gray-600 mt-1"></p>
         </header>
 
         <!-- Main Content Area -->
         <main id="main-content" class="flex-grow flex flex-col justify-center">
 
             <!-- Home Page -->
-            <div id="home-page" class="text-center">
-                <div class="text-8xl mb-4 animate-bounce">
+            <div id="home-page" class="text-center flex flex-col items-center justify-center h-full">
+                <div class="text-8xl mb-6 animate-bounce">
                     📖
                 </div>
-                <h2 class="text-3xl font-amiri font-bold text-gray-700">مدرسة هداية الإسلام الثانويّة العالية</h2>
-                <p class="text-gray-500 mb-8">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
-                <button id="show-classes-btn" class="w-full max-w-xs mx-auto bg-blue-600 text-white font-bold py-4 px-6 rounded-full text-2xl shadow-lg hover:bg-blue-700 transform hover:scale-105 transition-transform duration-300 ease-in-out">
+                <h1 class="text-5xl font-bold text-blue-800">Easy Result</h1>
+                <div class="mt-4">
+                    <h2 class="text-2xl font-amiri font-bold text-gray-700">مدرسة هداية الإسلام الثانويّة العالية</h2>
+                    <p class="text-sm text-gray-500">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
+                </div>
+                <button id="show-classes-btn" class="w-full max-w-xs mx-auto bg-blue-600 text-white font-bold py-4 px-6 rounded-full text-2xl shadow-lg hover:bg-blue-700 transform hover:scale-105 transition-transform duration-300 ease-in-out mt-10">
                     Classes
                 </button>
+                <div class="mt-8 w-full max-w-xs">
+                    <hr class="border-gray-300">
+                    <p class="text-sm text-gray-500 mt-3">Managed by: Ustadh Usman Ashrafi Malayamma</p>
+                </div>
             </div>
 
             <!-- Classes Page -->
@@ -209,12 +216,11 @@
             <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-2 rounded-full hover:bg-gray-300">Close</button>
         </div>
 
-        <div id="admin-panel-view" class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-2xl hidden h-[90vh] flex flex-col">
+        <div id="admin-panel-view" class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-xl md:max-w-3xl lg:max-w-4xl hidden h-[90vh] flex flex-col">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold">Admin Panel</h2>
                 <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
             </div>
-            <!-- UPDATED: Admin panel layout changed to single column -->
             <div class="flex-grow overflow-y-auto no-scrollbar pr-2 space-y-6">
                 <!-- Class Management -->
                 <div class="p-4 bg-gray-50 rounded-xl">
@@ -309,7 +315,7 @@
         };
         // ---------------------------------------------------------
 
-        // Initialize Firebase (FIXED: ensures it only runs once)
+        // Initialize Firebase (ensures it only runs once)
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -320,7 +326,7 @@
 
         // --- DATA STORE (now just a local cache) ---
         let localDB = {
-            madrasaName: "Ustadh Usman Ashrafi Malayamma",
+            madrasaName: "Hidayathul Islam Higher Secondary Madrassa, Vennakode",
             classes: [],
             subjects: [],
             exams: [],
@@ -342,18 +348,18 @@
             pages.forEach(p => document.getElementById(p).classList.add('hidden'));
             document.getElementById(pageId).classList.remove('hidden');
 
-            if (pageId === 'result-page') {
-                mainContent.classList.remove('justify-center');
+            if (pageId === 'result-page' || pageId === 'home-page') {
                 header.classList.add('hidden');
-                footer.classList.add('hidden');
             } else {
-                 mainContent.classList.add('justify-center');
                  header.classList.remove('hidden');
-                 if (pageId === 'home-page') {
-                    footer.classList.remove('hidden');
-                 } else {
-                    footer.classList.add('hidden');
-                 }
+            }
+            
+            if (pageId === 'home-page') {
+                mainContent.classList.add('justify-center');
+                footer.classList.remove('hidden');
+            } else {
+                mainContent.classList.remove('justify-center');
+                footer.classList.add('hidden');
             }
             
             if (isReset) {
@@ -874,6 +880,8 @@
                 <thead class="bg-gray-200">
                     <tr>
                         <th class="p-2">Name</th>
+                        <th class="p-2 w-16">Att.</th>
+                        <th class="p-2 w-16">Max</th>
                         ${classSubjects.map(s => `<th class="p-2 w-16" title="${s}">${s.substring(0,5)}..</th>`).join('')}
                         <th class="p-2 w-24">Actions</th>
                     </tr>
@@ -884,6 +892,8 @@
                 const student = {id: doc.id, ...doc.data()};
                 tableHTML += `<tr class="border-b">
                     <td class="p-2"><input class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="name" value="${student.name}"></td>
+                    <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="attendance" value="${student.attendance || 0}"></td>
+                    <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="maxAttendance" value="${student.maxAttendance || 0}"></td>
                     ${classSubjects.map(s => `<td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="subjects.${s}" value="${student.subjects[s] || 0}"></td>`).join('')}
                     <td class="p-2 text-center">
                         <button onclick="window.saveStudentChanges('${student.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600">Save</button>
@@ -910,13 +920,12 @@
                     if (!updateData.subjects) updateData.subjects = {};
                     updateData.subjects[subjectName] = input.type === 'number' ? parseInt(input.value) || 0 : input.value;
                 } else {
-                    updateData[field] = input.value;
+                    updateData[field] = input.type === 'number' ? parseInt(input.value) || 0 : input.value;
                 }
             });
 
             try {
                 const docRef = db.collection("results").doc(docId);
-                // Use merge:true to avoid overwriting the whole subjects map
                 await docRef.set(updateData, { merge: true });
                 statusEl.textContent = "Saved successfully!";
                 statusEl.className = "text-center text-sm mt-2 text-green-600";
