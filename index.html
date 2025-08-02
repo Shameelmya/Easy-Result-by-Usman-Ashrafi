@@ -214,84 +214,80 @@
                 <h2 class="text-2xl font-bold">Admin Panel</h2>
                 <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
             </div>
-            <div class="flex-grow overflow-y-auto no-scrollbar pr-2">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <!-- Class Management -->
-                        <div class="mb-6 p-4 bg-gray-50 rounded-xl">
-                            <h3 class="text-lg font-semibold mb-2">1. Manage Classes</h3>
-                            <div id="admin-class-list" class="space-y-2"></div>
+            <!-- UPDATED: Admin panel layout changed to single column -->
+            <div class="flex-grow overflow-y-auto no-scrollbar pr-2 space-y-6">
+                <!-- Class Management -->
+                <div class="p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">1. Manage Classes</h3>
+                    <div id="admin-class-list" class="space-y-2"></div>
+                    <div class="flex gap-2 mt-2">
+                        <input type="text" id="new-class-name" placeholder="New Class Name (e.g., 6)" class="flex-grow p-2 border rounded-lg">
+                        <button id="add-class-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600">+</button>
+                    </div>
+                </div>
+
+                <!-- Subject and Exam Management Section -->
+                <div class="p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">2. Manage Exams & Subjects</h3>
+                    <label for="admin-class-select" class="text-sm font-medium">Select Class to Manage:</label>
+                    <select id="admin-class-select" class="w-full p-2 border rounded-lg mt-1 mb-4"></select>
+                    
+                    <div id="exam-subject-management-container" class="hidden space-y-6">
+                        <!-- Exam Management -->
+                        <div>
+                            <h4 class="font-semibold mb-2 text-gray-700">Exams for this Class</h4>
+                            <div id="admin-exam-list" class="space-y-2 mb-3"></div>
                             <div class="flex gap-2 mt-2">
-                                <input type="text" id="new-class-name" placeholder="New Class Name (e.g., 6)" class="flex-grow p-2 border rounded-lg">
-                                <button id="add-class-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600">+</button>
+                                <input type="text" id="new-exam-name" placeholder="New Exam Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
+                                <button id="add-exam-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">+</button>
                             </div>
                         </div>
 
-                        <!-- Subject and Exam Management Section -->
-                        <div class="p-4 bg-gray-50 rounded-xl">
-                            <h3 class="text-lg font-semibold mb-2">2. Manage Exams & Subjects</h3>
-                            <label for="admin-class-select" class="text-sm font-medium">Select Class to Manage:</label>
-                            <select id="admin-class-select" class="w-full p-2 border rounded-lg mt-1 mb-4"></select>
-                            
-                            <div id="exam-subject-management-container" class="hidden">
-                                <!-- Exam Management -->
-                                <div class="mb-6">
-                                    <h4 class="font-semibold mb-2 text-gray-700">Exams for this Class</h4>
-                                    <div id="admin-exam-list" class="space-y-2 mb-3"></div>
-                                    <div class="flex gap-2 mt-2">
-                                        <input type="text" id="new-exam-name" placeholder="New Exam Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
-                                        <button id="add-exam-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">+</button>
-                                    </div>
-                                </div>
-
-                                <!-- Subject Management -->
-                                <div>
-                                    <h4 class="font-semibold mb-2 text-gray-700">Subjects for this Class</h4>
-                                    <div id="admin-subject-list" class="space-y-2 mb-3"></div>
-                                    <div class="flex gap-2 mt-2">
-                                        <input type="text" id="new-subject-name" placeholder="New Subject Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
-                                        <button id="add-subject-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">+</button>
-                                    </div>
-                                </div>
+                        <!-- Subject Management -->
+                        <div>
+                            <h4 class="font-semibold mb-2 text-gray-700">Subjects for this Class</h4>
+                            <div id="admin-subject-list" class="space-y-2 mb-3"></div>
+                            <div class="flex gap-2 mt-2">
+                                <input type="text" id="new-subject-name" placeholder="New Subject Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
+                                <button id="add-subject-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">+</button>
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <!-- Upload Student Results Section -->
-                        <div class="mb-6 p-4 bg-gray-50 rounded-xl">
-                            <h3 class="text-lg font-semibold mb-2">3. Upload Student Results</h3>
-                            <div id="upload-section-container" class="hidden space-y-3">
-                                <div>
-                                     <label for="upload-exam-select" class="text-sm font-medium">Select Exam to Add Results For:</label>
-                                     <select id="upload-exam-select" class="w-full p-2 border rounded-lg mt-1"></select>
-                                </div>
-                                <div>
-                                    <label for="csv-file-input" class="text-sm font-medium">Choose CSV File to Upload:</label>
-                                    <input type="file" id="csv-file-input" accept=".csv" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1">
-                                </div>
-                                <button id="upload-csv-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-full hover:bg-green-700">Upload Results</button>
-                                <p id="upload-status" class="text-center text-sm mt-2"></p>
-                            </div>
-                            <div id="upload-section-placeholder">
-                                <p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>
-                            </div>
+                </div>
+            
+                <!-- Upload Student Results Section -->
+                <div class="p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">3. Upload Student Results</h3>
+                    <div id="upload-section-container" class="hidden space-y-3">
+                        <div>
+                             <label for="upload-exam-select" class="text-sm font-medium">Select Exam to Add Results For:</label>
+                             <select id="upload-exam-select" class="w-full p-2 border rounded-lg mt-1"></select>
                         </div>
-                        
-                        <!-- NEW: Edit Student Results Section -->
-                        <div class="p-4 bg-gray-50 rounded-xl">
-                            <h3 class="text-lg font-semibold mb-2">4. Edit Student Results</h3>
-                            <div id="edit-section-container" class="hidden space-y-3">
-                                <div>
-                                     <label for="edit-exam-select" class="text-sm font-medium">Select Exam to Edit Results:</label>
-                                     <select id="edit-exam-select" class="w-full p-2 border rounded-lg mt-1"></select>
-                                </div>
-                                <div id="edit-results-table-container" class="max-h-96 overflow-y-auto"></div>
-                                <p id="edit-status" class="text-center text-sm mt-2"></p>
-                            </div>
-                            <div id="edit-section-placeholder">
-                                <p class="text-sm text-gray-500 text-center">Please select a class above to enable editing.</p>
-                            </div>
+                        <div>
+                            <label for="csv-file-input" class="text-sm font-medium">Choose CSV File to Upload:</label>
+                            <input type="file" id="csv-file-input" accept=".csv" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1">
                         </div>
+                        <button id="upload-csv-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-full hover:bg-green-700">Upload Results</button>
+                        <p id="upload-status" class="text-center text-sm mt-2"></p>
+                    </div>
+                    <div id="upload-section-placeholder">
+                        <p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>
+                    </div>
+                </div>
+                
+                <!-- Edit Student Results Section -->
+                <div class="p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">4. Edit Student Results</h3>
+                    <div id="edit-section-container" class="hidden space-y-3">
+                        <div>
+                             <label for="edit-exam-select" class="text-sm font-medium">Select Exam to Edit Results:</label>
+                             <select id="edit-exam-select" class="w-full p-2 border rounded-lg mt-1"></select>
+                        </div>
+                        <div id="edit-results-table-container" class="max-h-96 overflow-y-auto"></div>
+                        <p id="edit-status" class="text-center text-sm mt-2"></p>
+                    </div>
+                    <div id="edit-section-placeholder">
+                        <p class="text-sm text-gray-500 text-center">Please select a class above to enable editing.</p>
                     </div>
                 </div>
             </div>
