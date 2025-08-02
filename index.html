@@ -10,11 +10,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- jsPDF and html2canvas for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- PapaParse for CSV file reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- html2pdf.js for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Firebase SDKs (Compat libraries for wider compatibility) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -38,21 +37,6 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        /* Custom styles for print layout */
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #result-to-print, #result-to-print * {
-                visibility: visible;
-            }
-            #result-to-print {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-        }
         /* Spinner for loading state */
         .spinner {
             border: 4px solid rgba(0, 0, 0, 0.1);
@@ -65,6 +49,19 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        /* Style for the PDF's A4-sized content container */
+        /* --- PDF MARGINS MODIFIED AS PER USER REQUEST --- */
+        .pdf-container {
+            width: 210mm; /* A4 width */
+            /* Removed fixed height to prevent blank second page */
+            padding-top: 10mm;
+            padding-right: 30mm; /* Increased right padding for better alignment */
+            padding-bottom: 5mm;
+            padding-left: 10mm;
+            font-family: 'Amiri', serif;
+            color: #333;
+            background-color: #fff;
         }
     </style>
 </head>
@@ -102,7 +99,7 @@
                 </button>
                 <div class="mt-8 w-full max-w-xs">
                     <hr class="border-gray-300">
-                    <p class="text-sm text-gray-500 mt-3">Managed by: Ustadh Usman Ashrafi Malayamma</p>
+                    <p class="text-sm text-gray-500 mt-3">Managed by: Usthad Usman Ashrafi Malayamma</p>
                 </div>
             </div>
 
@@ -122,7 +119,7 @@
                 <div id="exam-list" class="space-y-3">
                     <!-- Exam buttons will be injected here by JavaScript -->
                 </div>
-                 <button onclick="showPage('classes-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
+                <button onclick="showPage('classes-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
             </div>
 
             <!-- Verification Page -->
@@ -141,10 +138,10 @@
                     <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-full text-lg shadow-md hover:bg-green-700 transition-colors">Get Result</button>
                 </form>
                 <div id="verification-error" class="mt-4 text-center text-red-600 font-semibold hidden"></div>
-                 <button onclick="showPage('exams-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
+                <button onclick="showPage('exams-page')" class="mt-8 w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Back</button>
             </div>
 
-            <!-- Result Page -->
+            <!-- Result Page (UI for screen) -->
             <div id="result-page" class="hidden p-1">
                 <div id="result-to-print" class="bg-white p-5 sm:p-8 rounded-2xl shadow-lg">
                     <div class="text-center mb-6 border-b-2 border-gray-200 pb-5">
@@ -189,9 +186,15 @@
                     </div>
                 </div>
                 <div class="mt-6 flex flex-col sm:flex-row gap-4">
-                    <button id="export-pdf-btn" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-full hover:bg-red-700 transition-colors">Export to PDF</button>
+                    <!-- New "Download PDF" button -->
+                    <button onclick="generatePdf()" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-full hover:bg-red-700 transition-colors">Download PDF</button>
                     <button onclick="showPage('home-page', true)" class="w-full bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full hover:bg-gray-400 transition-colors">Go Home</button>
                 </div>
+            </div>
+
+            <!-- PDF-specific content (Hidden from screen view) -->
+            <div id="pdf-content" class="hidden pdf-container">
+                <!-- PDF content will be dynamically generated and populated here -->
             </div>
 
         </main>
@@ -280,7 +283,7 @@
                         <p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>
                     </div>
                 </div>
-                
+            
                 <!-- Edit Student Results Section -->
                 <div class="p-4 bg-gray-50 rounded-xl">
                     <h3 class="text-lg font-semibold mb-2">4. Edit Student Results</h3>
@@ -297,63 +300,14 @@
                     </div>
                 </div>
             </div>
-             <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-full hover:bg-gray-300">Close Panel</button>
-        </div>
-    </div>
-
-    <!-- NEW: Hidden printable layout for PDF -->
-    <div id="pdf-layout" class="hidden">
-        <div class="p-10 font-amiri" style="width: 210mm; height: 297mm; color: black;">
-            <div class="text-center mb-8 border-b-2 border-black pb-4">
-                <h1 class="text-4xl font-bold font-amiri">مدرسة هداية الإسلام الثانويّة العالية</h1>
-                <p class="text-lg">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
-            </div>
-            <h2 class="text-center text-3xl mb-8 font-bold">Result Card - <span id="pdf-exam-name"></span></h2>
-
-            <div class="text-lg mb-8" dir="rtl">
-                <div class="flex justify-between mb-2"><span class="font-bold">الاسم:</span><span id="pdf-name" class="text-blue-700 font-bold"></span></div>
-                <div class="flex justify-between mb-2"><span class="font-bold">الصف:</span><span id="pdf-class"></span></div>
-                <div class="flex justify-between"><span class="font-bold">رقم التسجيل:</span><span id="pdf-admission-no"></span></div>
-            </div>
-
-            <table class="w-full text-lg border-collapse border border-black">
-                <thead class="bg-gray-200">
-                    <tr dir="rtl">
-                        <th class="border border-black p-3 text-right">المادة</th>
-                        <th class="border border-black p-3 text-center">العلامة</th>
-                        <th class="border border-black p-3 text-left">الحالة</th>
-                    </tr>
-                </thead>
-                <tbody id="pdf-scores-tbody">
-                    <!-- PDF scores will be injected here -->
-                </tbody>
-            </table>
-            
-            <div class="mt-8 grid grid-cols-2 gap-8 text-lg">
-                <div class="border border-black rounded-lg p-4" dir="rtl">
-                    <h3 class="font-bold text-xl mb-3 text-center">Summary</h3>
-                    <div class="flex justify-between"><p>المجموع الكلي:</p><p id="pdf-total-score" class="font-bold text-blue-700"></p></div>
-                    <div class="flex justify-between"><p>العلامة الكلية:</p><p id="pdf-max-score" class="font-bold"></p></div>
-                    <div class="flex justify-between"><p>النسبة المئوية:</p><p id="pdf-percentage" class="font-bold text-blue-700"></p></div>
-                </div>
-                <div class="border border-black rounded-lg p-4" dir="rtl">
-                    <h3 class="font-bold text-xl mb-3 text-center">Attendance</h3>
-                    <div class="flex justify-between"><p>الحضور:</p><p id="pdf-attendance" class="font-bold"></p></div>
-                    <div class="flex justify-between"><p>الحد الأقصى:</p><p id="pdf-max-attendance" class="font-bold"></p></div>
-                    <div class="flex justify-between"><p>النسبة:</p><p id="pdf-attendance-perc" class="font-bold text-blue-700"></p></div>
-                </div>
-            </div>
-
-            <div class="mt-16 text-lg">
-                <p>Class teacher name: Usman Ashrafi Malayamma</p>
-            </div>
+            <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-full hover:bg-gray-300">Close Panel</button>
         </div>
     </div>
 
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- Your Firebase configuration is now here ---
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDDaTVtsX_wO_XUFDww03IjHB0siL6VyAs",
             authDomain: "easyresultapp.firebaseapp.com",
@@ -362,8 +316,6 @@
             messagingSenderId: "1051381846105",
             appId: "1:1051381846105:web:f558b944b4a48faa0e6148"
         };
-        // ---------------------------------------------------------
-
         // Initialize Firebase (ensures it only runs once)
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -475,6 +427,9 @@
             const selectedClass = localDB.classes.find(c => c.id === currentState.selectedClassId);
             const selectedExam = localDB.exams.find(e => e.id === currentState.selectedExamId);
             
+            const classSubjects = localDB.subjects.filter(s => s.classId === selectedClass.id);
+            let maxScore = classSubjects.length * 50;
+
             // Populate screen view
             document.getElementById('res-admission-no').textContent = studentData.admNo;
             document.getElementById('res-uid').textContent = studentData.uid;
@@ -482,21 +437,10 @@
             document.getElementById('res-class').textContent = selectedClass.name;
             document.getElementById('res-exam-name').textContent = selectedExam.name;
             
-            // Populate PDF view
-            document.getElementById('pdf-exam-name').textContent = selectedExam.name;
-            document.getElementById('pdf-name').textContent = studentData.name;
-            document.getElementById('pdf-class').textContent = selectedClass.name;
-            document.getElementById('pdf-admission-no').textContent = studentData.admNo;
-
             const scoresTbody = document.getElementById('scores-tbody');
-            const pdfScoresTbody = document.getElementById('pdf-scores-tbody');
             scoresTbody.innerHTML = '';
-            pdfScoresTbody.innerHTML = '';
             let totalScore = 0;
             
-            const classSubjects = localDB.subjects.filter(s => s.classId === selectedClass.id);
-            let maxScore = classSubjects.length * 50;
-
             classSubjects.forEach(subject => {
                 const score = studentData.subjects[subject.name] || 0;
                 const status = score >= 18 ? 'Pass' : 'Fail';
@@ -512,15 +456,6 @@
                     <td class="px-6 py-4 text-left font-bold ${statusColor}">${status}</td>
                 `;
                 scoresTbody.appendChild(screenRow);
-                
-                const pdfRow = document.createElement('tr');
-                pdfRow.setAttribute('dir', 'rtl');
-                pdfRow.innerHTML = `
-                    <td class="border border-black p-3 text-right">${subject.name}</td>
-                    <td class="border border-black p-3 text-center font-mono font-bold text-blue-700">${score}</td>
-                    <td class="border border-black p-3 text-left font-bold ${statusColor}">${status}</td>
-                `;
-                pdfScoresTbody.appendChild(pdfRow);
             });
 
             const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(2) : 0;
@@ -534,16 +469,121 @@
             document.getElementById('res-max-attendance').textContent = studentData.maxAttendance;
             document.getElementById('res-attendance-perc').textContent = `${attendancePerc}%`;
 
-            // Populate PDF summary
-            document.getElementById('pdf-total-score').textContent = `${totalScore}`;
-            document.getElementById('pdf-max-score').textContent = `${maxScore}`;
-            document.getElementById('pdf-percentage').textContent = `${percentage}%`;
-            document.getElementById('pdf-attendance').textContent = studentData.attendance;
-            document.getElementById('pdf-max-attendance').textContent = studentData.maxAttendance;
-            document.getElementById('pdf-attendance-perc').textContent = `${attendancePerc}%`;
+            // Also populate the hidden PDF content div
+            renderPdfContent(studentData, selectedClass, selectedExam, classSubjects, totalScore, maxScore, percentage, attendancePerc);
 
             showPage('result-page');
         }
+
+        // Function to render the hidden PDF content
+        function renderPdfContent(studentData, selectedClass, selectedExam, classSubjects, totalScore, maxScore, percentage, attendancePerc) {
+            const pdfContent = document.getElementById('pdf-content');
+            
+            let scoresHtml = '';
+            classSubjects.forEach(subject => {
+                const score = studentData.subjects[subject.name] || 0;
+                const status = score >= 18 ? 'Pass' : 'Fail';
+                const statusColor = score >= 18 ? '#16a34a' : '#dc2626'; // Tailwind green-600, red-600
+                scoresHtml += `
+                    <tr class="border-b border-gray-300 last:border-b-0">
+                        <td class="py-2 text-right font-bold">${subject.name}</td>
+                        <td class="py-2 text-center text-lg font-bold text-blue-700">${score}</td>
+                        <td class="py-2 text-left font-bold" style="color: ${statusColor};">${status}</td>
+                    </tr>
+                `;
+            });
+            
+            pdfContent.innerHTML = `
+                <div class="pdf-body flex flex-col items-center py-6 px-8 space-y-4">
+                    <!-- PDF Header -->
+                    <div class="w-full text-center pb-4 border-b-2 border-gray-400">
+                        <h1 class="text-3xl font-amiri font-bold text-blue-800">
+                            مدرسة هداية الإسلام الثانويّة العالية
+                        </h1>
+                        <p class="text-sm text-gray-600 mt-4">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
+                    </div>
+
+                    <!-- Result Card Title with Background Shape -->
+                    <div class="relative w-full text-center mt-4 mb-2">
+                        <div class="absolute inset-0 bg-gray-200 opacity-60 rounded-xl"></div>
+                        <h2 class="relative text-3xl font-amiri font-bold text-gray-800 py-3">
+                            بطاقة النتيجة <br/>
+                            <span class="text-xl font-bold text-blue-700">${selectedExam.name}</span>
+                        </h2>
+                    </div>
+
+                    <!-- Student Details -->
+                    <div class="w-full grid grid-cols-2 gap-x-8 gap-y-2 text-sm font-amiri" dir="rtl">
+                        <div class="flex justify-between items-center"><p class="text-gray-600">رقم التسجيل:</p><p class="font-bold text-gray-800 text-left">${studentData.admNo}</p></div>
+                        <div class="flex justify-between items-center"><p class="text-gray-600">رقم الهوية:</p><p class="font-bold text-gray-800 text-left">${studentData.uid}</p></div>
+                        <div class="flex justify-between items-center"><p class="text-gray-600">الاسم:</p><p class="font-bold text-xl text-blue-700 text-left">${studentData.name}</p></div>
+                        <div class="flex justify-between items-center"><p class="text-gray-600">الصف:</p><p class="font-bold text-gray-800 text-left">${selectedClass.name}</p></div>
+                    </div>
+
+                    <!-- Scores Table -->
+                    <div class="w-full rounded-xl border border-gray-300 my-4">
+                        <table class="w-full divide-y divide-gray-300 font-amiri text-lg">
+                            <thead class="bg-gray-100">
+                                <tr dir="rtl" class="font-bold text-gray-700">
+                                    <th class="px-4 py-3 text-right">المادة</th>
+                                    <th class="px-4 py-3 text-center">العلامة</th>
+                                    <th class="px-4 py-3 text-left">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 text-gray-800 text-base">
+                                ${scoresHtml}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Summary Section (Two Columns) -->
+                    <div class="w-full pt-4 border-t-2 border-gray-300">
+                        <div class="grid grid-cols-2 gap-x-8 font-amiri text-base" dir="rtl">
+                            <!-- Left Column -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center"><p class="text-gray-600">المجموع الكلي:</p><p class="font-bold text-blue-700">${totalScore}</p></div>
+                                <div class="flex justify-between items-center"><p class="text-gray-600">العلامة الكلية:</p><p class="font-bold text-gray-900">${maxScore}</p></div>
+                                <div class="flex justify-between items-center"><p class="text-gray-600">النسبة المئوية:</p><p class="font-bold text-blue-700">${percentage}%</p></div>
+                            </div>
+                            <!-- Right Column -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center"><p class="text-gray-600">الحضور في هذا الفصل:</p><p class="font-bold text-gray-900">${studentData.attendance}</p></div>
+                                <div class="flex justify-between items-center"><p class="text-gray-600">الحد الأقصى للحضور:</p><p class="font-bold text-gray-900">${studentData.maxAttendance}</p></div>
+                                <div class="flex justify-between items-center"><p class="text-gray-600">نسبة الحضور:</p><p class="font-bold text-blue-700">${attendancePerc}%</p></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer with Class Teacher Name -->
+                    <div class="w-full mt-6 pt-4 border-t border-gray-300 text-center text-sm text-gray-600">
+                        <p class="font-bold">Class Teacher: Usthad Usman Ashrafi Malayamma</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Function to generate the PDF
+        window.generatePdf = function() {
+            const element = document.getElementById('pdf-content');
+            const opt = {
+                margin:       10,
+                filename:     'result_card.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Hide the on-screen content and display the PDF content just for the library
+            document.getElementById('result-to-print').classList.add('hidden');
+            element.classList.remove('hidden');
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // After saving, restore the original on-screen content
+                document.getElementById('result-to-print').classList.remove('hidden');
+                element.classList.add('hidden');
+            });
+        };
+
 
         // --- EVENT HANDLERS & LOGIC ---
         document.getElementById('show-classes-btn').addEventListener('click', () => {
@@ -593,40 +633,6 @@
             }
         });
 
-        document.getElementById('export-pdf-btn').addEventListener('click', () => {
-            const { jsPDF } = window.jspdf;
-            const resultElement = document.getElementById('pdf-layout'); // Target the hidden PDF layout
-            const studentName = document.getElementById('pdf-name').textContent;
-            const examName = document.getElementById('pdf-exam-name').textContent;
-            
-            html2canvas(resultElement, { scale: 3, useCORS: true }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-
-                const margin = 15;
-                const pdfWidth = pdf.internal.pageSize.getWidth() - (margin * 2);
-                const pdfHeight = pdf.internal.pageSize.getHeight() - (margin * 2);
-                
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                const canvasRatio = canvasWidth / canvasHeight;
-                
-                let finalWidth = pdfWidth;
-                let finalHeight = pdfWidth / canvasRatio;
-
-                if (finalHeight > pdfHeight) {
-                    finalHeight = pdfHeight;
-                    finalWidth = pdfHeight * canvasRatio;
-                }
-
-                const x = margin + (pdfWidth - finalWidth) / 2;
-                const y = margin;
-
-                pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
-                pdf.save(`Result-${studentName}-${examName}.pdf`);
-            });
-        });
-
         // --- ADMIN PANEL LOGIC ---
         const adminModal = document.getElementById('admin-modal');
         const adminLoginView = document.getElementById('admin-login-view');
@@ -663,8 +669,8 @@
             const list = document.getElementById('admin-class-list');
             list.innerHTML = '';
              if (localDB.classes.length === 0) {
-                list.innerHTML = `<p class="text-center text-sm text-gray-500">No classes added yet.</p>`;
-            }
+                 list.innerHTML = `<p class="text-center text-sm text-gray-500">No classes added yet.</p>`;
+             }
             localDB.classes.forEach(c => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center justify-between bg-gray-100 p-2 rounded-lg';
