@@ -301,6 +301,55 @@
         </div>
     </div>
 
+    <!-- NEW: Hidden printable layout for PDF -->
+    <div id="pdf-layout" class="hidden">
+        <div class="p-10 font-amiri" style="width: 210mm; height: 297mm; color: black;">
+            <div class="text-center mb-8 border-b-2 border-black pb-4">
+                <h1 class="text-4xl font-bold font-amiri">مدرسة هداية الإسلام الثانويّة العالية</h1>
+                <p class="text-lg">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
+            </div>
+            <h2 class="text-center text-3xl mb-8 font-bold">Result Card - <span id="pdf-exam-name"></span></h2>
+
+            <div class="text-lg mb-8" dir="rtl">
+                <div class="flex justify-between mb-2"><span class="font-bold">الاسم:</span><span id="pdf-name" class="text-blue-700 font-bold"></span></div>
+                <div class="flex justify-between mb-2"><span class="font-bold">الصف:</span><span id="pdf-class"></span></div>
+                <div class="flex justify-between"><span class="font-bold">رقم التسجيل:</span><span id="pdf-admission-no"></span></div>
+            </div>
+
+            <table class="w-full text-lg border-collapse border border-black">
+                <thead class="bg-gray-200">
+                    <tr dir="rtl">
+                        <th class="border border-black p-3 text-right">المادة</th>
+                        <th class="border border-black p-3 text-center">العلامة</th>
+                        <th class="border border-black p-3 text-left">الحالة</th>
+                    </tr>
+                </thead>
+                <tbody id="pdf-scores-tbody">
+                    <!-- PDF scores will be injected here -->
+                </tbody>
+            </table>
+            
+            <div class="mt-8 grid grid-cols-2 gap-8 text-lg">
+                <div class="border border-black rounded-lg p-4" dir="rtl">
+                    <h3 class="font-bold text-xl mb-3 text-center">Summary</h3>
+                    <div class="flex justify-between"><p>المجموع الكلي:</p><p id="pdf-total-score" class="font-bold text-blue-700"></p></div>
+                    <div class="flex justify-between"><p>العلامة الكلية:</p><p id="pdf-max-score" class="font-bold"></p></div>
+                    <div class="flex justify-between"><p>النسبة المئوية:</p><p id="pdf-percentage" class="font-bold text-blue-700"></p></div>
+                </div>
+                <div class="border border-black rounded-lg p-4" dir="rtl">
+                    <h3 class="font-bold text-xl mb-3 text-center">Attendance</h3>
+                    <div class="flex justify-between"><p>الحضور:</p><p id="pdf-attendance" class="font-bold"></p></div>
+                    <div class="flex justify-between"><p>الحد الأقصى:</p><p id="pdf-max-attendance" class="font-bold"></p></div>
+                    <div class="flex justify-between"><p>النسبة:</p><p id="pdf-attendance-perc" class="font-bold text-blue-700"></p></div>
+                </div>
+            </div>
+
+            <div class="mt-16 text-lg">
+                <p>Class teacher name: Usman Ashrafi Malayamma</p>
+            </div>
+        </div>
+    </div>
+
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -426,14 +475,23 @@
             const selectedClass = localDB.classes.find(c => c.id === currentState.selectedClassId);
             const selectedExam = localDB.exams.find(e => e.id === currentState.selectedExamId);
             
+            // Populate screen view
             document.getElementById('res-admission-no').textContent = studentData.admNo;
             document.getElementById('res-uid').textContent = studentData.uid;
             document.getElementById('res-name').textContent = studentData.name;
             document.getElementById('res-class').textContent = selectedClass.name;
             document.getElementById('res-exam-name').textContent = selectedExam.name;
             
+            // Populate PDF view
+            document.getElementById('pdf-exam-name').textContent = selectedExam.name;
+            document.getElementById('pdf-name').textContent = studentData.name;
+            document.getElementById('pdf-class').textContent = selectedClass.name;
+            document.getElementById('pdf-admission-no').textContent = studentData.admNo;
+
             const scoresTbody = document.getElementById('scores-tbody');
+            const pdfScoresTbody = document.getElementById('pdf-scores-tbody');
             scoresTbody.innerHTML = '';
+            pdfScoresTbody.innerHTML = '';
             let totalScore = 0;
             
             const classSubjects = localDB.subjects.filter(s => s.classId === selectedClass.id);
@@ -445,26 +503,44 @@
                 const statusColor = score >= 18 ? 'text-green-600' : 'text-red-600';
                 totalScore += parseInt(score) || 0;
 
-                const row = document.createElement('tr');
-                row.className = "hover:bg-gray-50";
-                row.setAttribute('dir', 'rtl');
-                row.innerHTML = `
+                const screenRow = document.createElement('tr');
+                screenRow.className = "hover:bg-gray-50";
+                screenRow.setAttribute('dir', 'rtl');
+                screenRow.innerHTML = `
                     <td class="px-6 py-4 text-right font-bold text-gray-800">${subject.name}</td>
                     <td class="px-6 py-4 text-center font-mono text-lg font-bold text-blue-700">${score}</td>
                     <td class="px-6 py-4 text-left font-bold ${statusColor}">${status}</td>
                 `;
-                scoresTbody.appendChild(row);
+                scoresTbody.appendChild(screenRow);
+                
+                const pdfRow = document.createElement('tr');
+                pdfRow.setAttribute('dir', 'rtl');
+                pdfRow.innerHTML = `
+                    <td class="border border-black p-3 text-right">${subject.name}</td>
+                    <td class="border border-black p-3 text-center font-mono font-bold text-blue-700">${score}</td>
+                    <td class="border border-black p-3 text-left font-bold ${statusColor}">${status}</td>
+                `;
+                pdfScoresTbody.appendChild(pdfRow);
             });
 
             const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(2) : 0;
             const attendancePerc = studentData.maxAttendance > 0 ? ((studentData.attendance / studentData.maxAttendance) * 100).toFixed(2) : 0;
 
+            // Populate screen summary
             document.getElementById('res-total-score').textContent = `${totalScore}`;
             document.getElementById('res-max-score').textContent = `${maxScore}`;
             document.getElementById('res-percentage').textContent = `${percentage}%`;
             document.getElementById('res-attendance').textContent = studentData.attendance;
             document.getElementById('res-max-attendance').textContent = studentData.maxAttendance;
             document.getElementById('res-attendance-perc').textContent = `${attendancePerc}%`;
+
+            // Populate PDF summary
+            document.getElementById('pdf-total-score').textContent = `${totalScore}`;
+            document.getElementById('pdf-max-score').textContent = `${maxScore}`;
+            document.getElementById('pdf-percentage').textContent = `${percentage}%`;
+            document.getElementById('pdf-attendance').textContent = studentData.attendance;
+            document.getElementById('pdf-max-attendance').textContent = studentData.maxAttendance;
+            document.getElementById('pdf-attendance-perc').textContent = `${attendancePerc}%`;
 
             showPage('result-page');
         }
@@ -519,9 +595,9 @@
 
         document.getElementById('export-pdf-btn').addEventListener('click', () => {
             const { jsPDF } = window.jspdf;
-            const resultElement = document.getElementById('result-to-print');
-            const studentName = document.getElementById('res-name').textContent;
-            const examName = document.getElementById('res-exam-name').textContent;
+            const resultElement = document.getElementById('pdf-layout'); // Target the hidden PDF layout
+            const studentName = document.getElementById('pdf-name').textContent;
+            const examName = document.getElementById('pdf-exam-name').textContent;
             
             html2canvas(resultElement, { scale: 3, useCORS: true }).then(canvas => {
                 const imgData = canvas.toDataURL('image/png');
