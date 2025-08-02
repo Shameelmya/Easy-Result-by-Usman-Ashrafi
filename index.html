@@ -16,6 +16,11 @@
     <!-- PapaParse for CSV file reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
+    <!-- UPDATED: Firebase SDKs (Compat libraries for wider compatibility) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
     <style>
         /* Custom styles to apply the fonts */
         body {
@@ -294,14 +299,10 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        // Import the functions you need from the SDKs you need
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-      
-        // --- UPDATED: Your Firebase configuration is now here ---
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Your Firebase configuration is now here ---
         const firebaseConfig = {
             apiKey: "AIzaSyDDaTVtsX_wO_XUFDww03IjHB0siL6VyAs",
             authDomain: "easyresultapp.firebaseapp.com",
@@ -312,11 +313,14 @@
         };
         // ---------------------------------------------------------
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
+        // Initialize Firebase (FIXED: ensures it only runs once)
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        auth.signInAnonymously().catch(error => console.error("Anonymous sign-in failed:", error));
 
         // --- DATA STORE (now just a local cache) ---
         let localDB = {
@@ -338,7 +342,7 @@
         const header = document.getElementById('header');
         const footer = document.getElementById('footer');
 
-        function showPage(pageId, isReset = false) {
+        window.showPage = function(pageId, isReset = false) {
             pages.forEach(p => document.getElementById(p).classList.add('hidden'));
             document.getElementById(pageId).classList.remove('hidden');
 
@@ -365,12 +369,12 @@
 
         // --- REAL-TIME DATA FETCHING FROM FIREBASE ---
         function listenToCollection(collectionName, targetArray, renderFunction) {
-            onSnapshot(collection(db, collectionName), (snapshot) => {
+            db.collection(collectionName).onSnapshot((snapshot) => {
                 targetArray.length = 0; // Clear the local array
                 snapshot.forEach(doc => {
                     targetArray.push({ id: doc.id, ...doc.data() });
                 });
-                targetArray.sort((a,b) => (a.createdAt > b.createdAt) ? 1 : -1); // Sort by creation time
+                targetArray.sort((a,b) => (a.createdAt && b.createdAt && a.createdAt.toDate() > b.createdAt.toDate()) ? 1 : -1); // Sort by creation time
                 if (renderFunction) renderFunction();
                 document.getElementById('loading-overlay').classList.add('hidden');
             });
@@ -495,14 +499,13 @@
                 return;
             }
 
-            const q = query(collection(db, "results"), 
-                where("classId", "==", currentState.selectedClassId),
-                where("examId", "==", currentState.selectedExamId),
-                where("admNo", "==", admNo),
-                where("uid", "==", uid)
-            );
+            const q = db.collection("results")
+                .where("classId", "==", currentState.selectedClassId)
+                .where("examId", "==", currentState.selectedExamId)
+                .where("admNo", "==", admNo)
+                .where("uid", "==", uid);
 
-            const querySnapshot = await getDocs(q);
+            const querySnapshot = await q.get();
             if (querySnapshot.empty) {
                 errorDiv.textContent = 'Admission Number and UID do not match. Please try again.';
                 errorDiv.classList.remove('hidden');
@@ -742,9 +745,9 @@
         async function addClass() {
             const input = document.getElementById('new-class-name');
             if (input.value.trim()) {
-                await addDoc(collection(db, "classes"), {
+                await db.collection("classes").add({
                     name: input.value.trim(),
-                    createdAt: new Date()
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 input.value = '';
             }
@@ -755,19 +758,19 @@
             const input = document.getElementById('new-exam-name');
             const classId = document.getElementById('admin-class-select').value;
             if (input.value.trim() && classId) {
-                const examsInClassQuery = query(collection(db, "exams"), where("classId", "==", classId));
-                const querySnapshot = await getDocs(examsInClassQuery);
-                const batch = writeBatch(db);
+                const examsInClassQuery = db.collection("exams").where("classId", "==", classId);
+                const querySnapshot = await examsInClassQuery.get();
+                const batch = db.batch();
                 querySnapshot.forEach(doc => {
                     batch.update(doc.ref, { isLatest: false });
                 });
                 await batch.commit();
 
-                await addDoc(collection(db, "exams"), {
+                await db.collection("exams").add({
                     classId,
                     name: input.value.trim(),
                     isLatest: true,
-                    createdAt: new Date()
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 input.value = '';
             }
@@ -778,28 +781,24 @@
             const input = document.getElementById('new-subject-name');
             const classId = document.getElementById('admin-class-select').value;
             if (input.value.trim() && classId) {
-                await addDoc(collection(db, "subjects"), {
+                await db.collection("subjects").add({
                     classId,
                     name: input.value.trim(),
-                    createdAt: new Date()
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 input.value = '';
             }
         }
         document.getElementById('add-subject-btn').onclick = addSubject;
 
-        window.updateClassName = async (id, newName) => await updateDoc(doc(db, "classes", id), { name: newName });
-        window.deleteClass = async (id) => {
-            // This is a complex operation. For now, we just delete the class itself.
-            // A full implementation would delete all related subjects, exams, and results.
-            await deleteDoc(doc(db, "classes", id));
-        };
+        window.updateClassName = async (id, newName) => await db.collection("classes").doc(id).update({ name: newName });
+        window.deleteClass = async (id) => await db.collection("classes").doc(id).delete();
         
-        window.updateExamName = async (id, newName) => await updateDoc(doc(db, "exams", id), { name: newName });
-        window.deleteExam = async (id) => await deleteDoc(doc(db, "exams", id));
+        window.updateExamName = async (id, newName) => await db.collection("exams").doc(id).update({ name: newName });
+        window.deleteExam = async (id) => await db.collection("exams").doc(id).delete();
         
-        window.updateSubjectName = async (id, newName) => await updateDoc(doc(db, "subjects", id), { name: newName });
-        window.deleteSubject = async (id) => await deleteDoc(doc(db, "subjects", id));
+        window.updateSubjectName = async (id, newName) => await db.collection("subjects").doc(id).update({ name: newName });
+        window.deleteSubject = async (id) => await db.collection("subjects").doc(id).delete();
 
         // CSV Upload Logic
         document.getElementById('upload-csv-btn').addEventListener('click', async () => {
@@ -808,8 +807,11 @@
             const fileInput = document.getElementById('csv-file-input');
             const statusEl = document.getElementById('upload-status');
 
-            if (!classId || !examId) { /* error handling */ return; }
-            if (fileInput.files.length === 0) { /* error handling */ return; }
+            if (!classId || !examId || !fileInput.files.length) { 
+                statusEl.textContent = "Please select a class, exam, and file.";
+                statusEl.className = "text-center text-sm mt-2 text-red-600";
+                return; 
+            }
 
             const file = fileInput.files[0];
             statusEl.textContent = `Uploading ${file.name}...`;
@@ -820,10 +822,10 @@
                 skipEmptyLines: true,
                 complete: async function(results) {
                     try {
-                        const batch = writeBatch(db);
+                        const batch = db.batch();
                         results.data.forEach(row => {
                             const { admNo, uid, name, attendance, maxAttendance, ...subjects } = row;
-                            const resultDocRef = doc(collection(db, "results"));
+                            const resultDocRef = db.collection("results").doc();
                             batch.set(resultDocRef, {
                                 classId, examId, admNo, uid, name,
                                 attendance: parseInt(attendance) || 0,
@@ -840,11 +842,14 @@
                         statusEl.className = "text-center text-sm mt-2 text-red-600";
                     }
                 },
-                error: (error) => { /* error handling */ }
+                error: (error) => { 
+                    statusEl.textContent = `Error parsing file: ${error.message}`;
+                    statusEl.className = "text-center text-sm mt-2 text-red-600";
+                }
             });
         });
         
-        // --- NEW: EDIT RESULTS LOGIC ---
+        // --- EDIT RESULTS LOGIC ---
         async function loadResultsForEditing() {
             const classId = document.getElementById('admin-class-select').value;
             const examId = document.getElementById('edit-exam-select').value;
@@ -859,8 +864,8 @@
                 return;
             }
             
-            const q = query(collection(db, "results"), where("classId", "==", classId), where("examId", "==", examId));
-            const querySnapshot = await getDocs(q);
+            const q = db.collection("results").where("classId", "==", classId).where("examId", "==", examId);
+            const querySnapshot = await q.get();
             
             if (querySnapshot.empty) {
                 container.innerHTML = '<p class="text-center text-sm text-gray-500 p-4">No results found for this exam. Upload a CSV file first.</p>';
@@ -873,7 +878,7 @@
                 <thead class="bg-gray-200">
                     <tr>
                         <th class="p-2">Name</th>
-                        ${classSubjects.map(s => `<th class="p-2 w-16">${s.substring(0,5)}..</th>`).join('')}
+                        ${classSubjects.map(s => `<th class="p-2 w-16" title="${s}">${s.substring(0,5)}..</th>`).join('')}
                         <th class="p-2 w-24">Actions</th>
                     </tr>
                 </thead>
@@ -904,7 +909,6 @@
             
             inputs.forEach(input => {
                 const field = input.dataset.field;
-                // Handle nested subject fields
                 if (field.startsWith('subjects.')) {
                     const subjectName = field.split('.')[1];
                     if (!updateData.subjects) updateData.subjects = {};
@@ -915,21 +919,9 @@
             });
 
             try {
-                // To update nested fields, we need to get the original document first
-                const docRef = doc(db, "results", docId);
-                const docSnap = await getDocs(query(collection(db, "results"), where("__name__", "==", docId)));
-                const existingData = docSnap.docs[0].data();
-
-                const finalUpdate = {
-                    ...existingData,
-                    ...updateData,
-                    subjects: {
-                        ...existingData.subjects,
-                        ...updateData.subjects
-                    }
-                };
-
-                await updateDoc(docRef, finalUpdate);
+                const docRef = db.collection("results").doc(docId);
+                // Use merge:true to avoid overwriting the whole subjects map
+                await docRef.set(updateData, { merge: true });
                 statusEl.textContent = "Saved successfully!";
                 statusEl.className = "text-center text-sm mt-2 text-green-600";
             } catch (error) {
@@ -948,6 +940,7 @@
         }
 
         initializeApp();
+    });
     </script>
 </body>
 </html>
