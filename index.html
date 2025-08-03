@@ -51,12 +51,10 @@
             100% { transform: rotate(360deg); }
         }
         /* Style for the PDF's A4-sized content container */
-        /* --- PDF MARGINS MODIFIED AS PER USER REQUEST --- */
         .pdf-container {
             width: 210mm; /* A4 width */
-            /* Removed fixed height to prevent blank second page */
             padding-top: 10mm;
-            padding-right: 30mm; /* Increased right padding for better alignment */
+            padding-right: 30mm;
             padding-bottom: 5mm;
             padding-left: 10mm;
             font-family: 'Amiri', serif;
@@ -94,8 +92,18 @@
                     <h2 class="text-2xl font-amiri font-bold text-gray-700">مدرسة هداية الإسلام الثانويّة العالية</h2>
                     <p class="text-sm text-gray-500">Hidayathul Islam Higher Secondary Madrassa, Vennakode</p>
                 </div>
+
+                <!-- NEW: Notifications Area -->
+                <div id="notifications-area" class="w-full max-w-xs mx-auto mt-10">
+                    <h3 class="text-lg font-bold text-gray-700 mb-2">🔔 Notifications</h3>
+                    <div id="notifications-list" class="space-y-3">
+                        <!-- Notifications will be injected here by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- RENAMED BUTTON -->
                 <button id="show-classes-btn" class="w-full max-w-xs mx-auto bg-blue-600 text-white font-bold py-4 px-6 rounded-full text-2xl shadow-lg hover:bg-blue-700 transform hover:scale-105 transition-transform duration-300 ease-in-out mt-10">
-                    Classes
+                    Results
                 </button>
                 <div class="mt-8 w-full max-w-xs">
                     <hr class="border-gray-300">
@@ -263,7 +271,7 @@
                         </div>
                     </div>
                 </div>
-            
+                
                 <!-- Upload Student Results Section -->
                 <div class="p-4 bg-gray-50 rounded-xl">
                     <h3 class="text-lg font-semibold mb-2">3. Upload Student Results</h3>
@@ -283,7 +291,7 @@
                         <p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>
                     </div>
                 </div>
-            
+                
                 <!-- Edit Student Results Section -->
                 <div class="p-4 bg-gray-50 rounded-xl">
                     <h3 class="text-lg font-semibold mb-2">4. Edit Student Results</h3>
@@ -299,6 +307,20 @@
                         <p class="text-sm text-gray-500 text-center">Please select a class above to enable editing.</p>
                     </div>
                 </div>
+
+                <!-- NEW: Notification Management Section -->
+                <div class="p-4 bg-gray-50 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-2">5. Manage Notifications</h3>
+                    <form id="add-notification-form" class="space-y-3">
+                        <input type="text" id="notification-title" placeholder="Notification Title (optional)" class="w-full p-2 border rounded-lg">
+                        <textarea id="notification-message" placeholder="Notification Message" rows="3" class="w-full p-2 border rounded-lg"></textarea>
+                        <button type="submit" class="w-full bg-purple-600 text-white font-bold py-2 rounded-lg hover:bg-purple-700">Add Notification</button>
+                    </form>
+                    <div id="admin-notifications-list" class="space-y-2 mt-4">
+                        <!-- Admin notifications will be injected here -->
+                    </div>
+                </div>
+
             </div>
             <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-full hover:bg-gray-300">Close Panel</button>
         </div>
@@ -331,6 +353,7 @@
             classes: [],
             subjects: [],
             exams: [],
+            notifications: [],
         };
 
         // --- STATE MANAGEMENT ---
@@ -377,13 +400,67 @@
                 snapshot.forEach(doc => {
                     targetArray.push({ id: doc.id, ...doc.data() });
                 });
-                targetArray.sort((a,b) => (a.createdAt && b.createdAt && a.createdAt.toDate() > b.createdAt.toDate()) ? 1 : -1); // Sort by creation time
+                // Sort by creation time, descending for notifications, ascending for others
+                if (collectionName === "notifications") {
+                     targetArray.sort((a,b) => (b.createdAt && a.createdAt && b.createdAt.toDate() - a.createdAt.toDate()));
+                } else {
+                    targetArray.sort((a,b) => (a.createdAt && b.createdAt && a.createdAt.toDate() > b.createdAt.toDate()) ? 1 : -1);
+                }
+                
                 if (renderFunction) renderFunction();
                 document.getElementById('loading-overlay').classList.add('hidden');
             });
         }
 
         // --- RENDERING FUNCTIONS (using localDB cache) ---
+        function renderNotifications() {
+            const list = document.getElementById('notifications-list');
+            list.innerHTML = '';
+            if (localDB.notifications.length === 0) {
+                 list.innerHTML = `<p class="text-center text-sm text-gray-400 p-4">No new notifications.</p>`;
+                 return;
+            }
+            localDB.notifications.forEach(n => {
+                const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                const date = n.createdAt ? n.createdAt.toDate().toLocaleString('en-US', dateOptions) : 'N/A';
+                
+                const notificationDiv = document.createElement('div');
+                // Updated classes for a more compact and rounded card
+                notificationDiv.className = "px-4 py-2 bg-white rounded-3xl shadow-md border border-gray-200 cursor-pointer transition-all duration-300 ease-in-out text-left";
+                notificationDiv.setAttribute('onclick', `toggleNotification('${n.id}')`);
+                notificationDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex-grow">
+                            <p class="font-bold text-blue-600 text-sm truncate w-full">${n.title || 'Notification'}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Post Date: ${date}</p>
+                        </div>
+                        <div class="flex-shrink-0 h-6 w-6 bg-gray-100 rounded-full flex items-center justify-center ml-2">
+                           <span id="chevron-${n.id}" class="text-gray-600 transform transition-transform duration-300 text-xs">▼</span>
+                        </div>
+                    </div>
+                    <div id="notif-message-${n.id}" class="text-xs text-gray-600 mt-2 max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+                        ${n.message}
+                    </div>
+                `;
+                list.appendChild(notificationDiv);
+            });
+        }
+        
+        window.toggleNotification = function(id) {
+            const messageEl = document.getElementById(`notif-message-${id}`);
+            const chevronEl = document.getElementById(`chevron-${id}`);
+            if (messageEl.classList.contains('max-h-0')) {
+                messageEl.classList.remove('max-h-0');
+                messageEl.style.maxHeight = messageEl.scrollHeight + 'px';
+                chevronEl.classList.add('rotate-180');
+            } else {
+                messageEl.style.maxHeight = '0px';
+                messageEl.classList.add('max-h-0');
+                chevronEl.classList.remove('rotate-180');
+            }
+        };
+
+
         function renderClasses() {
             const classList = document.getElementById('class-list');
             classList.innerHTML = '';
@@ -566,11 +643,11 @@
         window.generatePdf = function() {
             const element = document.getElementById('pdf-content');
             const opt = {
-                margin:       10,
-                filename:     'result_card.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                margin:       10,
+                filename:     'result_card.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
             // Hide the on-screen content and display the PDF content just for the library
@@ -661,8 +738,11 @@
         
         function renderAdminPanel() {
             renderAdminClasses();
+            renderAdminExams(); // Re-rendering exams first
+            renderAdminSubjects(); // Re-rendering subjects
             renderAdminClassSelect();
-            handleAdminClassChange();
+            handleAdminClassChange(); // Handle selects and containers after lists are rendered
+            renderAdminNotifications(); // NEW: Render admin notifications
         }
 
         function renderAdminClasses() {
@@ -824,6 +904,33 @@
             select.onchange = loadResultsForEditing;
             loadResultsForEditing(); // Load for the default selected exam
         }
+
+        // NEW: Function to render notifications in the admin panel
+        function renderAdminNotifications() {
+            const list = document.getElementById('admin-notifications-list');
+            list.innerHTML = '';
+            const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+            if (localDB.notifications.length === 0) {
+                 list.innerHTML = `<p class="text-center text-sm text-gray-500">No notifications yet.</p>`;
+                 return;
+            }
+            localDB.notifications.forEach(n => {
+                const date = n.createdAt ? n.createdAt.toDate().toLocaleString('en-US', dateOptions) : 'N/A';
+                const notificationDiv = document.createElement('div');
+                notificationDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 rounded-lg border';
+                notificationDiv.innerHTML = `
+                    <div class="flex-grow">
+                        <p class="font-bold text-gray-800 cursor-pointer" onclick="editNotificationTitle('${n.id}')" id="notif-title-${n.id}">${n.title || 'Notification'}</p>
+                        <p class="text-sm text-gray-600 cursor-pointer hover:underline" onclick="editNotificationMessage('${n.id}')" id="notif-msg-${n.id}">${n.message}</p>
+                        <p class="text-xs text-gray-400 mt-1">Post Date: ${date}</p>
+                    </div>
+                    <div class="flex-shrink-0 mt-2 sm:mt-0 ml-0 sm:ml-4 flex items-center">
+                        <button onclick="deleteNotification('${n.id}')" class="text-red-500 font-bold px-2 py-1 rounded hover:bg-red-100">Delete</button>
+                    </div>
+                `;
+                list.appendChild(notificationDiv);
+            });
+        }
         
         // --- ADMIN ACTIONS (now interact with Firebase) ---
         async function addClass() {
@@ -883,6 +990,45 @@
         
         window.updateSubjectName = async (id, newName) => await db.collection("subjects").doc(id).update({ name: newName });
         window.deleteSubject = async (id) => await db.collection("subjects").doc(id).delete();
+
+        // NEW: Notification Admin Functions
+        document.getElementById('add-notification-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('notification-title').value;
+            const message = document.getElementById('notification-message').value;
+
+            if (message.trim()) {
+                await db.collection("notifications").add({
+                    title: title.trim(),
+                    message: message.trim(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                document.getElementById('add-notification-form').reset();
+            }
+        });
+        
+        window.editNotificationTitle = async (id) => {
+            const titleEl = document.getElementById(`notif-title-${id}`);
+            const newTitle = prompt("Edit notification title:", titleEl.textContent);
+            if (newTitle !== null) {
+                await db.collection("notifications").doc(id).update({ title: newTitle.trim() });
+            }
+        };
+
+        window.editNotificationMessage = async (id) => {
+            const msgEl = document.getElementById(`notif-msg-${id}`);
+            const newMessage = prompt("Edit notification message:", msgEl.textContent);
+            if (newMessage !== null) {
+                await db.collection("notifications").doc(id).update({ message: newMessage.trim() });
+            }
+        };
+
+        window.deleteNotification = async (id) => {
+            if (confirm("Are you sure you want to delete this notification?")) {
+                await db.collection("notifications").doc(id).delete();
+            }
+        };
+
 
         // CSV Upload Logic
         document.getElementById('upload-csv-btn').addEventListener('click', async () => {
@@ -1023,6 +1169,7 @@
             listenToCollection("classes", localDB.classes, renderAdminPanel);
             listenToCollection("subjects", localDB.subjects, renderAdminPanel);
             listenToCollection("exams", localDB.exams, renderAdminPanel);
+            listenToCollection("notifications", localDB.notifications, renderNotifications);
             showPage('home-page');
         }
 
