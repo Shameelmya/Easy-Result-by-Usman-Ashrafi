@@ -1114,7 +1114,7 @@
             filesToShow.forEach(file => {
                 const uploadDate = file.uploadDate ? file.uploadDate.toDate().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }) : 'N/A';
                 const className = localDB.classes.find(c => c.id === file.classId)?.name || 'Unknown Class';
-                const examName = localDB.exams.find(e => e.id === file.examId)?.name || 'Unknown Exam';
+                const examName = localDB.exams.find(e => e.id === file.id)?.name || 'Unknown Exam'; // Corrected: use file.examId to find exam name
 
                 const fileDiv = document.createElement('div');
                 fileDiv.className = 'bg-white p-3 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center justify-between';
@@ -1314,7 +1314,17 @@
             if (uploadedFile) {
                 document.getElementById('admin-class-select').value = uploadedFile.classId;
                 document.getElementById('edit-exam-select').value = uploadedFile.examId;
-                handleAdminClassChange(); // Re-render sections based on new selection
+                
+                // Manually trigger the change event for both selects to ensure UI updates and data loads
+                const adminClassSelect = document.getElementById('admin-class-select');
+                const editExamSelect = document.getElementById('edit-exam-select');
+                
+                // Trigger change on class select first to update exam list
+                adminClassSelect.dispatchEvent(new Event('change'));
+                
+                // Then trigger change on exam select to load results for editing
+                editExamSelect.dispatchEvent(new Event('change'));
+
                 // Optionally scroll to the edit section
                 document.getElementById('edit-section-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
@@ -1573,7 +1583,7 @@
                         <th class="p-2">Name</th>
                         <th class="p-2 w-16">Att.</th>
                         <th class="p-2 w-16">Max</th>
-                        ${classSubjects.map(s => `<th class="p-2 w-16" title="${s}">${s.substring(0,5)}..</th>`).join('')}
+                        ${classSubjects.map(s => `<th class="p-2 w-16" title="${s.name}">${s.name.substring(0,5)}..</th>`).join('')}
                         <th class="p-2 w-24">Actions</th>
                     </tr>
                 </thead>
@@ -1585,7 +1595,7 @@
                     <td class="p-2"><input class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="name" value="${student.name}"></td>
                     <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="attendance" value="${getNumericValue(student.attendance)}"></td>
                     <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="maxAttendance" value="${getNumericValue(student.maxAttendance)}"></td>
-                    ${classSubjects.map(s => `<td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="subjects.${s}" value="${getNumericValue(student.subjects[s])}"></td>`).join('')}
+                    ${classSubjects.map(s => `<td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="subjects.${s.name}" value="${getNumericValue(student.subjects[s.name])}"></td>`).join('')}
                     <td class="p-2 text-center">
                         <button onclick="window.saveStudentChanges('${student.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600">Save</button>
                     </td>
