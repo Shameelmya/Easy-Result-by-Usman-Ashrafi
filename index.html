@@ -430,7 +430,8 @@
                 if (collectionName === "notifications" || collectionName === "uploadedCSVs") {
                      targetArray.sort((a,b) => (b.createdAt && a.createdAt && b.createdAt.toDate() - a.createdAt.toDate()));
                 } else {
-                    targetArray.sort((a,b) => (a.createdAt && b.createdAt && a.createdAt.toDate() > b.createdAt.toDate()) ? 1 : -1);
+                    // Sort subjects, classes, exams by creation time ascending
+                    targetArray.sort((a,b) => (a.createdAt && b.createdAt && a.createdAt.toDate() - b.createdAt.toDate()));
                 }
                 
                 if (renderFunction) renderFunction();
@@ -530,7 +531,11 @@
             const selectedClass = localDB.classes.find(c => c.id === currentState.selectedClassId);
             const selectedExam = localDB.exams.find(e => e.id === currentState.selectedExamId);
             
-            const classSubjects = localDB.subjects.filter(s => s.classId === selectedClass.id);
+            // Ensure classSubjects are sorted by creation time for consistent display order
+            const classSubjects = localDB.subjects
+                .filter(s => s.classId === selectedClass.id)
+                .sort((a, b) => (a.createdAt && b.createdAt && a.createdAt.toDate() - b.createdAt.toDate()));
+            
             let maxScore = classSubjects.length * 50;
 
             // Populate screen view
@@ -1552,7 +1557,10 @@
                 return;
             }
             
-            const classSubjects = localDB.subjects.filter(s => s.classId === classId).map(s => s.name);
+            // Ensure classSubjects are sorted by creation time for consistent display order
+            const classSubjects = localDB.subjects
+                .filter(s => s.classId === classId)
+                .sort((a, b) => (a.createdAt && b.createdAt && a.createdAt.toDate() - b.createdAt.toDate()));
             
             let tableHTML = `<table class="w-full text-sm text-left">
                 <thead class="bg-gray-200">
