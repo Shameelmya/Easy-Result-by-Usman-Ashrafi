@@ -252,7 +252,7 @@
                     <div id="exam-subject-management-container" class="hidden space-y-6">
                         <!-- Exam Management -->
                         <div>
-                            <h4 class="font-semibold mb-2 text-gray-700">Exams for this Class</h4>
+                            <h4 class="font-semibold mb-2 text-gray-700">Exams for this Class <span id="exam-class-name" class="text-blue-600 text-sm font-bold ml-2"></span></h4>
                             <div id="admin-exam-list" class="space-y-2 mb-3"></div>
                             <div class="flex gap-2 mt-2">
                                 <input type="text" id="new-exam-name" placeholder="New Exam Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
@@ -262,7 +262,7 @@
 
                         <!-- Subject Management -->
                         <div>
-                            <h4 class="font-semibold mb-2 text-gray-700">Subjects for this Class</h4>
+                            <h4 class="font-semibold mb-2 text-gray-700">Subjects for this Class <span id="subject-class-name" class="text-blue-600 text-sm font-bold ml-2"></span></h4>
                             <div id="admin-subject-list" class="space-y-2 mb-3"></div>
                             <div class="flex gap-2 mt-2">
                                 <input type="text" id="new-subject-name" placeholder="New Subject Name (Arabic)" class="flex-grow p-2 border rounded-lg font-amiri">
@@ -877,6 +877,8 @@
             const selectedClass = localDB.classes.find(c => c.id === selectedClassId);
             document.getElementById('upload-class-name').textContent = selectedClass ? `(Class ${selectedClass.name})` : '';
             document.getElementById('edit-class-name').textContent = selectedClass ? `(Class ${selectedClass.name})` : '';
+            document.getElementById('exam-class-name').textContent = selectedClass ? `(Class ${selectedClass.name})` : ''; // NEW
+            document.getElementById('subject-class-name').textContent = selectedClass ? `(Class ${selectedClass.name})` : ''; // NEW
 
 
             if(selectedClassId) {
@@ -1022,7 +1024,10 @@
                 select.appendChild(option);
             });
             select.onchange = loadResultsForEditing;
-            loadResultsForEditing(); // Load for the default selected exam
+            // Ensure loadResultsForEditing is called when the exam select changes
+            if (select.value) {
+                loadResultsForEditing();
+            }
         }
 
         // NEW: Function to render notifications in the admin panel
