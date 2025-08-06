@@ -272,9 +272,9 @@
                     </div>
                 </div>
                 
-                <!-- Upload Student Results Section -->
+                <!-- Upload Student Results Section (Now includes uploaded files list) -->
                 <div class="p-4 bg-gray-50 rounded-xl">
-                    <h3 class="text-lg font-semibold mb-2">3. Upload Student Results</h3>
+                    <h3 class="text-lg font-semibold mb-2">3. Upload Student Results <span id="upload-class-name" class="text-blue-600 text-sm font-bold ml-2"></span></h3>
                     <div id="upload-section-container" class="hidden space-y-3">
                         <div>
                              <label for="upload-exam-select" class="text-sm font-medium">Select Exam to Add Results For:</label>
@@ -287,6 +287,15 @@
                         </div>
                         <button id="upload-csv-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-full hover:bg-green-700">Upload Results</button>
                         <p id="upload-status" class="text-center text-sm mt-2"></p>
+
+                        <!-- NEW: Manage Uploaded Files List within this section -->
+                        <div class="mt-6">
+                            <h4 class="font-semibold mb-2 text-gray-700">Uploaded Files (Latest per Class/Exam)</h4>
+                            <div id="uploaded-files-list" class="space-y-2">
+                                <!-- Uploaded files will be listed here -->
+                                <p class="text-center text-sm text-gray-500">No files uploaded yet.</p>
+                            </div>
+                        </div>
                     </div>
                     <div id="upload-section-placeholder">
                         <p class="text-sm text-gray-500 text-center">Please select a class above to enable uploads.</p>
@@ -295,7 +304,7 @@
                 
                 <!-- Edit Student Results Section -->
                 <div class="p-4 bg-gray-50 rounded-xl">
-                    <h3 class="text-lg font-semibold mb-2">4. Edit Student Results</h3>
+                    <h3 class="text-lg font-semibold mb-2">4. Edit Student Results <span id="edit-class-name" class="text-blue-600 text-sm font-bold ml-2"></span></h3>
                     <div id="edit-section-container" class="hidden space-y-3">
                         <div>
                              <label for="edit-exam-select" class="text-sm font-medium">Select Exam to Edit Results:</label>
@@ -303,6 +312,8 @@
                         </div>
                         <div id="edit-results-table-container" class="max-h-96 overflow-y-auto"></div>
                         <p id="edit-status" class="text-center text-sm mt-2"></p>
+                        <!-- NEW: Clear All Results Button -->
+                        <button id="clear-all-results-btn" class="w-full bg-red-600 text-white font-bold py-3 rounded-full hover:bg-red-700 mt-4">Clear All Results for this Exam</button>
                     </div>
                     <div id="edit-section-placeholder">
                         <p class="text-sm text-gray-500 text-center">Please select a class above to enable editing.</p>
@@ -321,7 +332,6 @@
                         <!-- Admin notifications will be injected here -->
                     </div>
                 </div>
-
             </div>
             <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-full hover:bg-gray-300">Close Panel</button>
         </div>
@@ -369,6 +379,7 @@
             subjects: [],
             exams: [],
             notifications: [],
+            uploadedCSVs: [], 
         };
 
         // --- STATE MANAGEMENT ---
@@ -416,7 +427,7 @@
                     targetArray.push({ id: doc.id, ...doc.data() });
                 });
                 // Sort by creation time, descending for notifications, ascending for others
-                if (collectionName === "notifications") {
+                if (collectionName === "notifications" || collectionName === "uploadedCSVs") {
                      targetArray.sort((a,b) => (b.createdAt && a.createdAt && b.createdAt.toDate() - a.createdAt.toDate()));
                 } else {
                     targetArray.sort((a,b) => (a.createdAt && b.createdAt && a.createdAt.toDate() > b.createdAt.toDate()) ? 1 : -1);
@@ -758,6 +769,7 @@
             renderAdminClassSelect();
             handleAdminClassChange(); // Handle selects and containers after lists are rendered
             renderAdminNotifications(); // NEW: Render admin notifications
+            renderAdminUploadedFiles(); // NEW: Render uploaded files
         }
 
         // Generic function for inline editing
@@ -774,7 +786,8 @@
                     try {
                         await db.collection(collectionName).doc(docId).update({ [fieldName]: newValue });
                         element.textContent = newValue;
-                    } catch (error) {
+                    }
+                    catch (error) {
                         console.error(`Error updating ${fieldName}:`, error);
                         element.textContent = originalValue; // Revert on error
                     }
@@ -855,12 +868,19 @@
             const editContainer = document.getElementById('edit-section-container');
             const editPlaceholder = document.getElementById('edit-section-placeholder');
 
+            // Update class names in headings
+            const selectedClass = localDB.classes.find(c => c.id === selectedClassId);
+            document.getElementById('upload-class-name').textContent = selectedClass ? `(Class ${selectedClass.name})` : '';
+            document.getElementById('edit-class-name').textContent = selectedClass ? `(Class ${selectedClass.name})` : '';
+
+
             if(selectedClassId) {
                 container.classList.remove('hidden');
                 renderAdminExams();
                 renderAdminSubjects();
                 renderUploadExamSelect();
                 renderEditExamSelect();
+                renderAdminUploadedFiles(); // Ensure uploaded files list updates on class change
                 
                 const examsForClass = localDB.exams.filter(e => e.classId == selectedClassId);
                 if (examsForClass.length > 0) {
@@ -1061,7 +1081,49 @@
                 list.appendChild(notificationDiv);
             });
         }
-        
+
+        // NEW: renderAdminUploadedFiles function
+        function renderAdminUploadedFiles() {
+            const list = document.getElementById('uploaded-files-list'); 
+            list.innerHTML = '';
+            
+            // Filter to show only the latest file for each classId/examId combination
+            // This is now enforced by the upload logic, so we just display what's there
+            const filesToShow = localDB.uploadedCSVs.filter(file => {
+                // Only show files for the currently selected class and exam in the admin panel
+                const selectedClassId = document.getElementById('admin-class-select').value;
+                const selectedExamId = document.getElementById('upload-exam-select').value; // Use upload-exam-select for context
+                return file.classId === selectedClassId && file.examId === selectedExamId;
+            }).sort((a, b) => b.uploadDate.toDate() - a.uploadDate.toDate()); // Sort by latest upload date
+
+            if (filesToShow.length === 0) {
+                list.innerHTML = `<p class="text-center text-sm text-gray-500">No files uploaded for this Class/Exam yet.</p>`;
+                return;
+            }
+
+            filesToShow.forEach(file => {
+                const uploadDate = file.uploadDate ? file.uploadDate.toDate().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }) : 'N/A';
+                const className = localDB.classes.find(c => c.id === file.classId)?.name || 'Unknown Class';
+                const examName = localDB.exams.find(e => e.id === file.examId)?.name || 'Unknown Exam';
+
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'bg-white p-3 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center justify-between';
+                fileDiv.innerHTML = `
+                    <div class="flex-grow text-left">
+                        <p class="font-bold text-gray-800 text-sm">${file.fileName}</p>
+                        <p class="text-xs text-gray-600 mt-0.5">Class: ${className}, Exam: ${examName}</p>
+                        <p class="text-xs text-gray-500">Uploaded: ${uploadDate}</p>
+                    </div>
+                    <div class="flex-shrink-0 mt-2 sm:mt-0 flex space-x-2">
+                        <button onclick="viewUploadedFile('${file.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600">View</button>
+                        <button onclick="editUploadedFile('${file.id}')" class="bg-yellow-500 text-white px-3 py-1 rounded-md text-xs hover:bg-yellow-600">✏️ Edit</button>
+                        <button onclick="deleteUploadedFile('${file.id}')" class="bg-red-500 text-white px-3 py-1 rounded-md text-xs hover:bg-red-600">Remove</button>
+                    </div>
+                `;
+                list.appendChild(fileDiv);
+            });
+        }
+
         // --- ADMIN ACTIONS (now interact with Firebase) ---
         async function addClass() {
             const input = document.getElementById('new-class-name');
@@ -1155,71 +1217,184 @@
             }
         };
 
-        // NEW: CSV Preview Logic
-        document.getElementById('view-csv-btn').addEventListener('click', () => {
-            const fileInput = document.getElementById('csv-file-input');
+        // NEW: CSV Preview Logic (modified to handle uploaded file data)
+        window.viewUploadedFile = async (fileId) => {
+            const uploadedFile = localDB.uploadedCSVs.find(f => f.id === fileId);
+            if (!uploadedFile) {
+                alert('Uploaded file metadata not found.'); // Using alert for simplicity here, consider custom modal
+                return;
+            }
+
             const previewModal = document.getElementById('csv-preview-modal');
             const previewContent = document.getElementById('csv-preview-content');
             const previewStatus = document.getElementById('csv-preview-status');
 
             previewContent.innerHTML = '';
-            previewStatus.textContent = '';
+            previewStatus.textContent = `Loading results for ${uploadedFile.fileName}...`;
             previewModal.classList.remove('hidden');
 
-            if (!fileInput.files.length) {
-                previewStatus.textContent = "Please select a CSV file first.";
+            try {
+                // Query results specifically linked to this uploaded file ID
+                const q = db.collection("results")
+                    .where("uploadedFileId", "==", uploadedFile.id);
+                
+                const querySnapshot = await q.get();
+                const resultsData = [];
+                querySnapshot.forEach(doc => {
+                    resultsData.push(doc.data());
+                });
+
+                if (resultsData.length === 0) {
+                    previewStatus.textContent = `No student results found for this specific upload.`;
+                    previewStatus.className = "text-center text-sm mt-4 text-gray-600";
+                    return;
+                }
+
+                // Dynamically create table headers based on available keys in results
+                const allKeys = new Set();
+                resultsData.forEach(row => {
+                    Object.keys(row).forEach(key => {
+                        if (key !== 'uploadedFileId' && key !== 'classId' && key !== 'examId') { // Exclude internal IDs
+                            allKeys.add(key);
+                        }
+                    });
+                    if (row.subjects) { // Add subject keys if present
+                        Object.keys(row.subjects).forEach(subjectKey => allKeys.add(`subjects.${subjectKey}`));
+                    }
+                });
+                const headers = Array.from(allKeys).sort(); // Sort for consistent order
+
+                let tableHtml = `<table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-100"><tr>`;
+                headers.forEach(header => {
+                    const displayHeader = header.startsWith('subjects.') ? header.substring(9) : header;
+                    tableHtml += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${displayHeader}</th>`;
+                });
+                tableHtml += `</tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+
+                resultsData.forEach(row => {
+                    tableHtml += `<tr>`;
+                    headers.forEach(header => {
+                        let cellValue = '';
+                        if (header.startsWith('subjects.')) {
+                            const subjectKey = header.substring(9);
+                            cellValue = row.subjects && row.subjects[subjectKey] !== undefined ? row.subjects[subjectKey] : '';
+                        } else {
+                            cellValue = row[header] !== undefined ? row[header] : '';
+                        }
+                        tableHtml += `<td class="px-4 py-2 whitespace-nowrap text-gray-800">${cellValue}</td>`;
+                    });
+                    tableHtml += `</tr>`;
+                });
+                tableHtml += `</tbody></table>`;
+                previewContent.innerHTML = tableHtml;
+                previewStatus.textContent = `Displaying ${resultsData.length} records for ${uploadedFile.fileName}.`;
+                previewStatus.className = "text-center text-sm mt-4 text-green-600";
+
+            } catch (error) {
+                console.error("Error viewing uploaded file results:", error);
+                previewStatus.textContent = `Error loading results: ${error.message}`;
+                previewStatus.className = "text-center text-sm mt-4 text-red-600";
+            }
+        };
+
+        // NEW: Edit Uploaded File (navigates to edit results for that class/exam)
+        window.editUploadedFile = (fileId) => {
+            const uploadedFile = localDB.uploadedCSVs.find(f => f.id === fileId);
+            if (uploadedFile) {
+                document.getElementById('admin-class-select').value = uploadedFile.classId;
+                document.getElementById('edit-exam-select').value = uploadedFile.examId;
+                handleAdminClassChange(); // Re-render sections based on new selection
+                // Optionally scroll to the edit section
+                document.getElementById('edit-section-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                alert('Uploaded file not found.');
+            }
+        };
+
+        // NEW: Delete Uploaded File AND Associated Results
+        window.deleteUploadedFile = async (fileId) => {
+            const uploadedFile = localDB.uploadedCSVs.find(f => f.id === fileId);
+            if (!uploadedFile) {
+                alert('Uploaded file record not found.');
                 return;
             }
 
-            const file = fileInput.files[0];
-            previewStatus.textContent = `Loading ${file.name}...`;
+            const className = localDB.classes.find(c => c.id === uploadedFile.classId)?.name || 'Unknown Class';
+            const examName = localDB.exams.find(e => e.id === uploadedFile.examId)?.name || 'Unknown Exam';
 
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    console.log("CSV Preview - Raw Data:", results.data);
-                    console.log("CSV Preview - Headers:", results.meta.fields);
-                    console.log("CSV Preview - Errors:", results.errors);
-
-                    if (results.errors.length > 0) {
-                        previewStatus.textContent = `Errors parsing file: ${results.errors.map(e => e.message).join('; ')}`;
-                        previewStatus.className = "text-center text-sm mt-4 text-red-600";
-                        return;
-                    }
-
-                    if (results.data.length === 0) {
-                        previewStatus.textContent = "CSV file is empty or contains no valid data.";
-                        previewStatus.className = "text-center text-sm mt-4 text-gray-600";
-                        return;
-                    }
-
-                    let tableHtml = `<table class="min-w-full divide-y divide-gray-200 text-sm">
-                                        <thead class="bg-gray-100"><tr>`;
-                    results.meta.fields.forEach(field => {
-                        tableHtml += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${field}</th>`;
+            if (confirm(`Are you sure you want to remove the file "${uploadedFile.fileName}" and ALL student results associated with this specific upload for Class: ${className}, Exam: ${examName}? This action cannot be undone.`)) {
+                try {
+                    const resultsQuery = db.collection("results").where("uploadedFileId", "==", fileId);
+                    const resultsSnapshot = await resultsQuery.get();
+                    
+                    const batch = db.batch();
+                    resultsSnapshot.forEach(doc => {
+                        batch.delete(doc.ref);
                     });
-                    tableHtml += `</tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
-
-                    results.data.forEach(row => {
-                        tableHtml += `<tr>`;
-                        results.meta.fields.forEach(field => {
-                            tableHtml += `<td class="px-4 py-2 whitespace-nowrap text-gray-800">${row[field] !== undefined ? row[field] : ''}</td>`;
-                        });
-                        tableHtml += `</tr>`;
-                    });
-                    tableHtml += `</tbody></table>`;
-                    previewContent.innerHTML = tableHtml;
-                    previewStatus.textContent = `Successfully loaded ${results.data.length} records for preview.`;
-                    previewStatus.className = "text-center text-sm mt-4 text-green-600";
-                },
-                error: (error) => {
-                    console.error("CSV Preview - Parsing Error:", error);
-                    previewStatus.textContent = `Error reading file: ${error.message}`;
-                    previewStatus.className = "text-center text-sm mt-4 text-red-600";
+                    batch.delete(db.collection("uploadedCSVs").doc(fileId)); // Delete the metadata record itself
+                    
+                    await batch.commit();
+                    alert("Uploaded file record and associated student results removed successfully.");
+                    // Re-render relevant sections after deletion
+                    loadResultsForEditing(); // Refresh student edit table
+                    renderAdminUploadedFiles(); // Refresh uploaded files list
+                } catch (error) {
+                    console.error("Error deleting uploaded file record and associated results:", error);
+                    alert(`Error removing file record and results: ${error.message}`);
                 }
-            });
-        });
+            }
+        };
+
+        // NEW: Function to clear all results and uploaded file for a given class and exam
+        window.clearResultsForClassExam = async () => {
+            const classId = document.getElementById('admin-class-select').value;
+            const examId = document.getElementById('edit-exam-select').value; // Use edit-exam-select for context
+
+            if (!classId || !examId) {
+                alert("Please select a Class and an Exam to clear results.");
+                return;
+            }
+
+            const className = localDB.classes.find(c => c.id === classId)?.name || 'Unknown Class';
+            const examName = localDB.exams.find(e => e.id === examId)?.name || 'Unknown Exam';
+
+            if (confirm(`Are you sure you want to clear ALL student results and associated uploaded files for Class: ${className}, Exam: ${examName}? This action cannot be undone.`)) {
+                try {
+                    const batch = db.batch();
+
+                    // Delete results
+                    const resultsQuery = db.collection("results")
+                        .where("classId", "==", classId)
+                        .where("examId", "==", examId);
+                    const resultsSnapshot = await resultsQuery.get();
+                    resultsSnapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+
+                    // Delete uploaded CSV metadata
+                    const uploadedCSVsQuery = db.collection("uploadedCSVs")
+                        .where("classId", "==", classId)
+                        .where("examId", "==", examId);
+                    const uploadedCSVsSnapshot = await uploadedCSVsQuery.get();
+                    uploadedCSVsSnapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+
+                    await batch.commit();
+                    alert(`All results and uploaded files for Class: ${className}, Exam: ${examName} have been cleared.`);
+                    // Re-render the relevant sections
+                    loadResultsForEditing(); // Will show "No results found"
+                    renderAdminUploadedFiles(); // Will show "No files uploaded" for this combination
+                } catch (error) {
+                    console.error("Error clearing results:", error);
+                    alert(`Error clearing results: ${error.message}`);
+                }
+            }
+        };
+        // Attach the clear button handler
+        document.getElementById('clear-all-results-btn').addEventListener('click', window.clearResultsForClassExam);
+
 
         // CSV Upload Logic
         document.getElementById('upload-csv-btn').addEventListener('click', async () => {
@@ -1229,7 +1404,7 @@
             const statusEl = document.getElementById('upload-status');
 
             if (!classId || !examId || !fileInput.files.length) { 
-                statusEl.textContent = "Please select a class, exam, and file.";
+                statusEl.textContent = "Please select a class, an exam, and a file.";
                 statusEl.className = "text-center text-sm mt-2 text-red-600";
                 return; 
             }
@@ -1259,7 +1434,43 @@
                     }
 
                     try {
-                        const batch = db.batch();
+                        // Step 1: Find and delete any existing uploaded files and their associated results for this class/exam
+                        const existingUploadsQuery = db.collection("uploadedCSVs")
+                            .where("classId", "==", classId)
+                            .where("examId", "==", examId);
+                        
+                        const existingUploadsSnapshot = await existingUploadsQuery.get();
+                        const deleteBatch = db.batch();
+                        let deletedCount = 0;
+
+                        for (const uploadedFileDoc of existingUploadsSnapshot.docs) {
+                            const oldFileId = uploadedFileDoc.id;
+                            const oldResultsQuery = db.collection("results").where("uploadedFileId", "==", oldFileId);
+                            const oldResultsSnapshot = await oldResultsQuery.get();
+                            
+                            oldResultsSnapshot.forEach(resultDoc => {
+                                deleteBatch.delete(resultDoc.ref);
+                            });
+                            deleteBatch.delete(uploadedFileDoc.ref); // Delete the old uploaded CSV metadata record
+                            deletedCount++;
+                        }
+                        if (deletedCount > 0) {
+                            await deleteBatch.commit();
+                            console.log(`Deleted ${deletedCount} old uploaded file records and their associated results for Class ${classId}, Exam ${examId}.`);
+                        }
+
+
+                        // Step 2: Create the new uploaded CSV metadata record
+                        const uploadedFileDocRef = await db.collection("uploadedCSVs").add({
+                            classId,
+                            examId,
+                            fileName: file.name,
+                            uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
+                            numRecords: results.data.length
+                        });
+
+                        // Step 3: Add new student results linked to the new uploadedFileId
+                        const addResultsBatch = db.batch();
                         results.data.forEach(row => {
                             const { admNo, uid, name, attendance, maxAttendance, ...subjects } = row;
                             // Ensure attendance and maxAttendance are numbers, default to 0 if not
@@ -1273,17 +1484,29 @@
                             }
 
                             const resultDocRef = db.collection("results").doc();
-                            batch.set(resultDocRef, {
-                                classId, examId, admNo, uid, name,
+                            addResultsBatch.set(resultDocRef, {
+                                classId, 
+                                examId, 
+                                admNo, 
+                                uid, 
+                                name,
                                 attendance: parsedAttendance,
                                 maxAttendance: parsedMaxAttendance,
-                                subjects: parsedSubjects
+                                subjects: parsedSubjects,
+                                uploadedFileId: uploadedFileDocRef.id // Link results to this specific new upload
                             });
                         });
-                        await batch.commit();
-                        statusEl.textContent = `Successfully uploaded ${results.data.length} student records.`;
+                        await addResultsBatch.commit();
+
+                        statusEl.textContent = `Successfully uploaded ${results.data.length} student records. Previous data for this Class/Exam has been replaced.`;
                         statusEl.className = "text-center text-sm mt-2 text-green-600";
                         fileInput.value = ''; // Clear file input
+
+                        // Immediately re-render the relevant admin panel sections
+                        renderUploadExamSelect();
+                        loadResultsForEditing();
+                        renderAdminUploadedFiles(); // Re-render the uploaded files list
+
                     } catch (error) {
                         statusEl.textContent = `Error uploading to database: ${error.message}`;
                         statusEl.className = "text-center text-sm mt-2 text-red-600";
@@ -1298,6 +1521,12 @@
         });
         
         // --- EDIT RESULTS LOGIC ---
+        // Helper function to get a numeric value or '0' as a string
+        const getNumericValue = (val) => {
+            const num = parseInt(val);
+            return isNaN(num) ? '0' : num.toString();
+        };
+
         async function loadResultsForEditing() {
             const classId = document.getElementById('admin-class-select').value;
             const examId = document.getElementById('edit-exam-select').value;
@@ -1312,6 +1541,9 @@
                 return;
             }
             
+            // Fetch results for the selected class and exam.
+            // Since we're now enforcing one-to-one mapping via upload,
+            // this will naturally get the results of the latest upload.
             const q = db.collection("results").where("classId", "==", classId).where("examId", "==", examId);
             const querySnapshot = await q.get();
             
@@ -1338,9 +1570,9 @@
                 const student = {id: doc.id, ...doc.data()};
                 tableHTML += `<tr class="border-b">
                     <td class="p-2"><input class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="name" value="${student.name}"></td>
-                    <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="attendance" value="${student.attendance || 0}"></td>
-                    <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="maxAttendance" value="${student.maxAttendance || 0}"></td>
-                    ${classSubjects.map(s => `<td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="subjects.${s}" value="${student.subjects[s] || 0}"></td>`).join('')}
+                    <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="attendance" value="${getNumericValue(student.attendance)}"></td>
+                    <td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="maxAttendance" value="${getNumericValue(student.maxAttendance)}"></td>
+                    ${classSubjects.map(s => `<td class="p-1"><input type="number" class="w-full bg-gray-50 rounded p-1" data-id="${student.id}" data-field="subjects.${s}" value="${getNumericValue(student.subjects[s])}"></td>`).join('')}
                     <td class="p-2 text-center">
                         <button onclick="window.saveStudentChanges('${student.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600">Save</button>
                     </td>
@@ -1388,6 +1620,7 @@
             listenToCollection("subjects", localDB.subjects, renderAdminPanel);
             listenToCollection("exams", localDB.exams, renderAdminPanel);
             listenToCollection("notifications", localDB.notifications, renderNotifications);
+            listenToCollection("uploadedCSVs", localDB.uploadedCSVs, renderAdminUploadedFiles); 
             showPage('home-page');
         }
 
