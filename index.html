@@ -280,9 +280,10 @@
                              <label for="upload-exam-select" class="text-sm font-medium">Select Exam to Add Results For:</label>
                              <select id="upload-exam-select" class="w-full p-2 border rounded-lg mt-1"></select>
                         </div>
-                        <div>
+                        <div class="flex items-center gap-2">
                             <label for="csv-file-input" class="text-sm font-medium">Choose CSV File to Upload:</label>
-                            <input type="file" id="csv-file-input" accept=".csv" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1">
+                            <input type="file" id="csv-file-input" accept=".csv" class="flex-grow text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1">
+                            <button id="view-csv-btn" class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-400 transition-colors">View CSV</button>
                         </div>
                         <button id="upload-csv-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-full hover:bg-green-700">Upload Results</button>
                         <p id="upload-status" class="text-center text-sm mt-2"></p>
@@ -323,6 +324,20 @@
 
             </div>
             <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-full hover:bg-gray-300">Close Panel</button>
+        </div>
+    </div>
+
+    <!-- CSV Preview Modal -->
+    <div id="csv-preview-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">CSV Preview</h2>
+                <button onclick="document.getElementById('csv-preview-modal').classList.add('hidden')" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="csv-preview-content" class="flex-grow overflow-auto border border-gray-200 rounded-lg p-2">
+                <!-- CSV content will be loaded here -->
+            </div>
+            <p id="csv-preview-status" class="text-center text-sm mt-4"></p>
         </div>
     </div>
 
@@ -745,6 +760,41 @@
             renderAdminNotifications(); // NEW: Render admin notifications
         }
 
+        // Generic function for inline editing
+        async function enableInlineEdit(element, docId, collectionName, fieldName, isArabic = false) {
+            const originalValue = element.textContent.trim();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalValue;
+            input.className = `bg-gray-100 p-1 rounded-md border border-gray-300 w-full ${isArabic ? 'font-amiri' : ''}`;
+
+            const saveChanges = async () => {
+                const newValue = input.value.trim();
+                if (newValue !== originalValue && newValue !== '') {
+                    try {
+                        await db.collection(collectionName).doc(docId).update({ [fieldName]: newValue });
+                        element.textContent = newValue;
+                    } catch (error) {
+                        console.error(`Error updating ${fieldName}:`, error);
+                        element.textContent = originalValue; // Revert on error
+                    }
+                } else {
+                    element.textContent = originalValue; // Revert if no change or empty
+                }
+                element.parentNode.replaceChild(element, input); // Replace input with original element
+            };
+
+            input.addEventListener('blur', saveChanges);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur(); // Trigger blur to save changes
+                }
+            });
+
+            element.parentNode.replaceChild(input, element); // Replace original element with input
+            input.focus();
+        }
+
         function renderAdminClasses() {
             const list = document.getElementById('admin-class-list');
             list.innerHTML = '';
@@ -754,10 +804,25 @@
             localDB.classes.forEach(c => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center justify-between bg-gray-100 p-2 rounded-lg';
-                div.innerHTML = `
-                    <input type="text" value="${c.name}" onchange="updateClassName('${c.id}', this.value)" class="bg-transparent font-semibold w-full">
-                    <button onclick="deleteClass('${c.id}')" class="text-red-500 font-bold px-2 hover:text-red-700">X</button>
-                `;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-semibold w-full cursor-pointer';
+                nameSpan.textContent = c.name;
+                nameSpan.onclick = () => enableInlineEdit(nameSpan, c.id, 'classes', 'name');
+
+                const editIcon = document.createElement('span');
+                editIcon.className = 'ml-2 text-gray-500 cursor-pointer hover:text-blue-600';
+                editIcon.innerHTML = '✏️';
+                editIcon.onclick = () => enableInlineEdit(nameSpan, c.id, 'classes', 'name');
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 font-bold px-2 hover:text-red-700';
+                deleteBtn.textContent = 'X';
+                deleteBtn.onclick = () => deleteClass(c.id);
+
+                div.appendChild(nameSpan);
+                div.appendChild(editIcon);
+                div.appendChild(deleteBtn);
                 list.appendChild(div);
             });
         }
@@ -836,10 +901,25 @@
             examsForClass.forEach(e => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center justify-between bg-white p-2 rounded-lg border';
-                div.innerHTML = `
-                    <input type="text" value="${e.name}" onchange="updateExamName('${e.id}', this.value)" class="bg-transparent font-amiri w-full">
-                    <button onclick="deleteExam('${e.id}')" class="text-red-500 font-bold px-2 hover:text-red-700">X</button>
-                `;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-amiri w-full cursor-pointer';
+                nameSpan.textContent = e.name;
+                nameSpan.onclick = () => enableInlineEdit(nameSpan, e.id, 'exams', 'name', true);
+
+                const editIcon = document.createElement('span');
+                editIcon.className = 'ml-2 text-gray-500 cursor-pointer hover:text-blue-600';
+                editIcon.innerHTML = '✏️';
+                editIcon.onclick = () => enableInlineEdit(nameSpan, e.id, 'exams', 'name', true);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 font-bold px-2 hover:text-red-700';
+                deleteBtn.textContent = 'X';
+                deleteBtn.onclick = () => deleteExam(e.id);
+
+                div.appendChild(nameSpan);
+                div.appendChild(editIcon);
+                div.appendChild(deleteBtn);
                 list.appendChild(div);
             });
         }
@@ -857,10 +937,25 @@
             subjectsForClass.forEach(s => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center justify-between bg-white p-2 rounded-lg border';
-                div.innerHTML = `
-                    <input type="text" value="${s.name}" onchange="updateSubjectName('${s.id}', this.value)" class="bg-transparent font-amiri w-full">
-                    <button onclick="deleteSubject('${s.id}')" class="text-red-500 font-bold px-2 hover:text-red-700">X</button>
-                `;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-amiri w-full cursor-pointer';
+                nameSpan.textContent = s.name;
+                nameSpan.onclick = () => enableInlineEdit(nameSpan, s.id, 'subjects', 'name', true);
+
+                const editIcon = document.createElement('span');
+                editIcon.className = 'ml-2 text-gray-500 cursor-pointer hover:text-blue-600';
+                editIcon.innerHTML = '✏️';
+                editIcon.onclick = () => enableInlineEdit(nameSpan, s.id, 'subjects', 'name', true);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 font-bold px-2 hover:text-red-700';
+                deleteBtn.textContent = 'X';
+                deleteBtn.onclick = () => deleteSubject(s.id);
+
+                div.appendChild(nameSpan);
+                div.appendChild(editIcon);
+                div.appendChild(deleteBtn);
                 list.appendChild(div);
             });
         }
@@ -918,16 +1013,51 @@
                 const date = n.createdAt ? n.createdAt.toDate().toLocaleString('en-US', dateOptions) : 'N/A';
                 const notificationDiv = document.createElement('div');
                 notificationDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 rounded-lg border';
-                notificationDiv.innerHTML = `
-                    <div class="flex-grow">
-                        <p class="font-bold text-gray-800 cursor-pointer" onclick="editNotificationTitle('${n.id}')" id="notif-title-${n.id}">${n.title || 'Notification'}</p>
-                        <p class="text-sm text-gray-600 cursor-pointer hover:underline" onclick="editNotificationMessage('${n.id}')" id="notif-msg-${n.id}">${n.message}</p>
-                        <p class="text-xs text-gray-400 mt-1">Post Date: ${date}</p>
-                    </div>
-                    <div class="flex-shrink-0 mt-2 sm:mt-0 ml-0 sm:ml-4 flex items-center">
-                        <button onclick="deleteNotification('${n.id}')" class="text-red-500 font-bold px-2 py-1 rounded hover:bg-red-100">Delete</button>
-                    </div>
-                `;
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'font-bold text-gray-800 cursor-pointer flex-grow';
+                titleSpan.textContent = n.title || 'Notification';
+                titleSpan.onclick = () => enableInlineEdit(titleSpan, n.id, 'notifications', 'title');
+
+                const messageSpan = document.createElement('span');
+                messageSpan.className = 'text-sm text-gray-600 cursor-pointer hover:underline flex-grow';
+                messageSpan.textContent = n.message;
+                messageSpan.onclick = () => enableInlineEdit(messageSpan, n.id, 'notifications', 'message');
+
+                const editTitleIcon = document.createElement('span');
+                editTitleIcon.className = 'ml-2 text-gray-500 cursor-pointer hover:text-blue-600';
+                editTitleIcon.innerHTML = '✏️';
+                editTitleIcon.onclick = () => enableInlineEdit(titleSpan, n.id, 'notifications', 'title');
+
+                const editMessageIcon = document.createElement('span');
+                editMessageIcon.className = 'ml-2 text-gray-500 cursor-pointer hover:text-blue-600';
+                editMessageIcon.innerHTML = '✏️';
+                editMessageIcon.onclick = () => enableInlineEdit(messageSpan, n.id, 'notifications', 'message');
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 font-bold px-2 py-1 rounded hover:bg-red-100';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = () => deleteNotification(n.id);
+
+                const dateP = document.createElement('p');
+                dateP.className = 'text-xs text-gray-400 mt-1';
+                dateP.textContent = `Post Date: ${date}`;
+
+                const titleContainer = document.createElement('div');
+                titleContainer.className = 'flex items-center w-full';
+                titleContainer.appendChild(titleSpan);
+                titleContainer.appendChild(editTitleIcon);
+
+                const messageContainer = document.createElement('div');
+                messageContainer.className = 'flex items-center w-full';
+                messageContainer.appendChild(messageSpan);
+                messageContainer.appendChild(editMessageIcon);
+
+                notificationDiv.appendChild(titleContainer);
+                notificationDiv.appendChild(dateP);
+                notificationDiv.appendChild(messageContainer);
+                notificationDiv.appendChild(deleteBtn);
+                
                 list.appendChild(notificationDiv);
             });
         }
@@ -1007,20 +1137,16 @@
             }
         });
         
+        // Modified to use enableInlineEdit
         window.editNotificationTitle = async (id) => {
             const titleEl = document.getElementById(`notif-title-${id}`);
-            const newTitle = prompt("Edit notification title:", titleEl.textContent);
-            if (newTitle !== null) {
-                await db.collection("notifications").doc(id).update({ title: newTitle.trim() });
-            }
+            enableInlineEdit(titleEl, id, 'notifications', 'title');
         };
 
+        // Modified to use enableInlineEdit
         window.editNotificationMessage = async (id) => {
             const msgEl = document.getElementById(`notif-msg-${id}`);
-            const newMessage = prompt("Edit notification message:", msgEl.textContent);
-            if (newMessage !== null) {
-                await db.collection("notifications").doc(id).update({ message: newMessage.trim() });
-            }
+            enableInlineEdit(msgEl, id, 'notifications', 'message');
         };
 
         window.deleteNotification = async (id) => {
@@ -1029,6 +1155,71 @@
             }
         };
 
+        // NEW: CSV Preview Logic
+        document.getElementById('view-csv-btn').addEventListener('click', () => {
+            const fileInput = document.getElementById('csv-file-input');
+            const previewModal = document.getElementById('csv-preview-modal');
+            const previewContent = document.getElementById('csv-preview-content');
+            const previewStatus = document.getElementById('csv-preview-status');
+
+            previewContent.innerHTML = '';
+            previewStatus.textContent = '';
+            previewModal.classList.remove('hidden');
+
+            if (!fileInput.files.length) {
+                previewStatus.textContent = "Please select a CSV file first.";
+                return;
+            }
+
+            const file = fileInput.files[0];
+            previewStatus.textContent = `Loading ${file.name}...`;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    console.log("CSV Preview - Raw Data:", results.data);
+                    console.log("CSV Preview - Headers:", results.meta.fields);
+                    console.log("CSV Preview - Errors:", results.errors);
+
+                    if (results.errors.length > 0) {
+                        previewStatus.textContent = `Errors parsing file: ${results.errors.map(e => e.message).join('; ')}`;
+                        previewStatus.className = "text-center text-sm mt-4 text-red-600";
+                        return;
+                    }
+
+                    if (results.data.length === 0) {
+                        previewStatus.textContent = "CSV file is empty or contains no valid data.";
+                        previewStatus.className = "text-center text-sm mt-4 text-gray-600";
+                        return;
+                    }
+
+                    let tableHtml = `<table class="min-w-full divide-y divide-gray-200 text-sm">
+                                        <thead class="bg-gray-100"><tr>`;
+                    results.meta.fields.forEach(field => {
+                        tableHtml += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${field}</th>`;
+                    });
+                    tableHtml += `</tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+
+                    results.data.forEach(row => {
+                        tableHtml += `<tr>`;
+                        results.meta.fields.forEach(field => {
+                            tableHtml += `<td class="px-4 py-2 whitespace-nowrap text-gray-800">${row[field] !== undefined ? row[field] : ''}</td>`;
+                        });
+                        tableHtml += `</tr>`;
+                    });
+                    tableHtml += `</tbody></table>`;
+                    previewContent.innerHTML = tableHtml;
+                    previewStatus.textContent = `Successfully loaded ${results.data.length} records for preview.`;
+                    previewStatus.className = "text-center text-sm mt-4 text-green-600";
+                },
+                error: (error) => {
+                    console.error("CSV Preview - Parsing Error:", error);
+                    previewStatus.textContent = `Error reading file: ${error.message}`;
+                    previewStatus.className = "text-center text-sm mt-4 text-red-600";
+                }
+            });
+        });
 
         // CSV Upload Logic
         document.getElementById('upload-csv-btn').addEventListener('click', async () => {
@@ -1051,28 +1242,55 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: async function(results) {
+                    console.log("CSV Upload - Raw Data:", results.data);
+                    console.log("CSV Upload - Headers:", results.meta.fields);
+                    console.log("CSV Upload - Errors:", results.errors);
+
+                    if (results.errors.length > 0) {
+                        statusEl.textContent = `Errors parsing file: ${results.errors.map(e => e.message).join('; ')}`;
+                        statusEl.className = "text-center text-sm mt-2 text-red-600";
+                        return;
+                    }
+
+                    if (results.data.length === 0) {
+                        statusEl.textContent = "CSV file is empty or contains no valid data.";
+                        statusEl.className = "text-center text-sm mt-2 text-red-600";
+                        return;
+                    }
+
                     try {
                         const batch = db.batch();
                         results.data.forEach(row => {
                             const { admNo, uid, name, attendance, maxAttendance, ...subjects } = row;
+                            // Ensure attendance and maxAttendance are numbers, default to 0 if not
+                            const parsedAttendance = parseInt(attendance) || 0;
+                            const parsedMaxAttendance = parseInt(maxAttendance) || 0;
+
+                            // Parse subject scores, ensuring they are numbers
+                            const parsedSubjects = {};
+                            for (const key in subjects) {
+                                parsedSubjects[key] = parseInt(subjects[key]) || 0;
+                            }
+
                             const resultDocRef = db.collection("results").doc();
                             batch.set(resultDocRef, {
                                 classId, examId, admNo, uid, name,
-                                attendance: parseInt(attendance) || 0,
-                                maxAttendance: parseInt(maxAttendance) || 0,
-                                subjects
+                                attendance: parsedAttendance,
+                                maxAttendance: parsedMaxAttendance,
+                                subjects: parsedSubjects
                             });
                         });
                         await batch.commit();
                         statusEl.textContent = `Successfully uploaded ${results.data.length} student records.`;
                         statusEl.className = "text-center text-sm mt-2 text-green-600";
-                        fileInput.value = '';
+                        fileInput.value = ''; // Clear file input
                     } catch (error) {
                         statusEl.textContent = `Error uploading to database: ${error.message}`;
                         statusEl.className = "text-center text-sm mt-2 text-red-600";
                     }
                 },
                 error: (error) => { 
+                    console.error("CSV Upload - Parsing Error:", error);
                     statusEl.textContent = `Error parsing file: ${error.message}`;
                     statusEl.className = "text-center text-sm mt-2 text-red-600";
                 }
